@@ -37,6 +37,8 @@
 ;;; Code:
 
 (require 'osx-plist)
+(require 'request)
+(require 'json)
 
 (setq geolocation-osx-airport-command
       (concat  "/System/Library/PrivateFrameworks/"
@@ -44,25 +46,51 @@
                "airport --scan --xml"
                "| cat -v"))
 
+(setq geolocation-api-unwiredlabs-url
+      "https://us2.unwiredlabs.com/v2/process.php")
+
+(setq geolocation-api-unwiredlabs-token
+      (if-let ((pw (car (auth-source-search :host "unwiredlabs.com"))))
+          (funcall (plist-get pw :secret))))
+
+(setq geolocation-api-google-url nil)
+
+(setq geolocation-api-select :unwiredlabs)
+
 (defun geolocation--osx-call-airport ()
   "Run the \"airport\" utility and get xml output."
-  (with-temp-buffer
-    (set-buffer-file-coding-system 'no-conversion) ; necessary?
-    (shell-command geolocation-osx-airport-command t nil)
+  (with-current-buffer (get-buffer-create "airport.plist") ; with-temp-buffer
+    ;; (let ((coding-system-for-read 'utf-8))
+    ;;   (shell-command geolocation-osx-airport-command t nil))
     (osx-plist-parse-buffer)))
 
 (defun geolocation--osx-parse-access-point (ap)
-  "Parse the access point entry AP."
-  (list (gethash "BSSID" ap)
-        (gethash "RSSI" ap)
-        (gethash "CHANNEL" ap)
-        (gethash "SSID_STR" ap)))
+  "Select relevant fields from access point record AP."
+  (list (cons 'bssid (gethash "BSSID" ap))
+        (cons 'signal (gethash "RSSI" ap))
+        (cons 'channel (gethash "CHANNEL" ap))))
 
-(defun geolocation--get-wifi-access-points ()
+(defun geolocation-get-wifi-access-points ()
   "Return a list of nearby wifi access points."
   (if-let ((aps (geolocation--osx-call-airport)))
       (let ((parsed (mapcar #'geolocation--osx-parse-access-point aps)))
-        (sort parsed (lambda (x y) (> (cadr x) (cadr y)))))))
+        (sort parsed (lambda (x y)
+                       (> (alist-get 'signal x)
+                          (alist-get 'signal y)))))))
+
+(defun geolocation--call-unwiredlabs-api (wifi)
+  "Call the Unwiredlabs REST API with WIFI data and get position."
+  (request geolocation-api-unwiredlabs-url
+    :type "POST"
+    :data (json-encode `(("token" . ,geolocation-api-unwiredlabs-token)
+                         ("wifi" . ,wifi)))
+    :sync t
+    :timeout 15))
+
+(defun geolocation-get-position ()
+  "Return our current latitude and longitude."
+  (if-let ((wifi (geolocation-get-wifi-access-points)))
+      (geolocation--call-unwiredlabs-api wifi)))
 
 (provide 'geolocation)
 ;;; geolocation.el ends here
