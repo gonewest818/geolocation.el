@@ -43,7 +43,7 @@
 (require 'json)
 
 ; todo: defcustom
-(setq geolocation-api-vendor :unwiredlabs)
+(setq geolocation-api-vendor :google)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Macintosh
@@ -130,7 +130,46 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Google geolocation api
 
-(setq geolocation-api-google-url nil)
+(setq geolocation-api-google-url
+      "https://www.googleapis.com/geolocation/v1/geolocate")
+
+(setq geolocation-api-google-token
+      (if-let ((pw (car (auth-source-search :host "googleapis.com"))))
+          (funcall (plist-get pw :secret))))
+
+(defun geolocation--google-xform-wifi (wifi)
+  "Transform WIFI list into the format needed for Google's API."
+  (mapcar (lambda (x)
+            (list (cons 'macAddress     (alist-get 'bssid x))
+                  (cons 'signalStrength (alist-get 'signal x))
+                  (cons 'channel        (alist-get 'channel x))))
+          wifi))
+
+(defun geolocation--google-xform-location (response)
+  "Transform the Google Geolocation API response into the format needed."
+  (let* ((r (request-response-data response))
+         (loc (alist-get 'location r))
+         (lat (alist-get 'lat loc))
+         (lng (alist-get 'lng loc))
+         (acc (alist-get 'accuracy r)))
+    (list (cons 'lat lat)
+          (cons 'lon lng)
+          (cons 'accuracy acc))))
+
+(defun geolocation--call-google-api (wifi)
+  "Invoke the Google Geolocation REST API with WIFI data."
+  (message "calling google api")
+  (let* ((wifi-g (geolocation--google-xform-wifi wifi))
+         (response
+          (request geolocation-api-google-url
+            :type "POST"
+            :params (list (cons "key" geolocation-api-google-token))
+            :data (json-encode (list (cons "wifiAccessPoints" wifi-g)))
+            :parser #'json-read
+            :sync t                    ; todo: make this an async call
+            :timeout 15)))
+    (when (= 200 (request-response-status-code response))
+      (geolocation--google-xform-location response))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unwired Labs geolocation api
@@ -147,7 +186,8 @@
           (funcall (plist-get pw :secret))))
 
 (defun geolocation--call-unwiredlabs-api (wifi)
-  "Invoke the Unwiredlabs REST API with WIFI data and get position."
+  "Invoke the Unwiredlabs REST API with WIFI data."
+  (message "calling unwiredlabs api")
   (let ((response
          (request geolocation-api-unwiredlabs-url
            :type "POST"
@@ -193,7 +233,9 @@ Other keys may be included in the result, but are not guaranteed
 to be supported going forward."
   (if-let ((wifi (geolocation-scan-wifi)))
       (cond ((eq :unwiredlabs geolocation-api-vendor)
-             (geolocation--call-unwiredlabs-api wifi)))))
+             (geolocation--call-unwiredlabs-api wifi))
+            ((eq :google geolocation-api-vendor)
+             (geolocation--call-google-api wifi)))))
 
 (provide 'geolocation)
 ;;; geolocation.el ends here
