@@ -63,7 +63,10 @@
               "airport --scan | cut -c 34-63 | tail -n +2"))
 
 (defun geolocation--osx-scan-wifi ()
-  "Run the \"airport\" utility and parse the default output."
+  "Run the \"airport\" utility and parse the default output.
+
+Return a list of alists.  Each alist will contain these keys:
+`bssid', `signal' and `channel'."
   (with-temp-buffer
     (let ((coding-system-for-read 'utf-8)
           (result '()))
@@ -116,9 +119,46 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Windows
 
+(setq geolocation--windows-netsh-command
+      "netsh wlan show networks mode=bssid")
+
+(defun geolocation--windows-bssid ()
+  "Search via regexp for the next BSSID."
+  (re-search-forward "\\s-*BSSID\\s-[0-9]+\\s-*:\\s-\\([a-f0-9:]+\\)")
+  (match-string 1))
+
+(defun geolocation--windows-signal ()
+  "Search via regexp for the next Signal value."
+  (re-search-forward "\\s-*Signal\\s-*:\\s-\\([0-9:]+\\)")
+  (if-let (sig (match-string 1))
+      (- (/ (string-to-number sig) 2.0) 100)))
+
+(defun geolocation--windows-channel ()
+  "Search via regexp for the next Channel number."
+  (re-search-forward "\\s-*Channel\\s-*:\\s-\\([0-9:]+\\)")
+  (match-string 1))
+
 (defun geolocation--windows-scan-wifi ()
-  "Wifi scanning on Windows not yet implemented."
-  (error "Wifi scanning on Windows not yet implemented"))
+  "Run \"netsh wlan show networks\" and parse the output.
+
+Return a list of alists.  Each alist will contain these keys:
+`bssid', `signal' and `channel'."
+  (with-temp-buffer
+    (let ((coding-system-for-read 'utf-8)
+          (result '()))
+      (shell-command geolocation--windows-netsh-command t nil)
+      (goto-char (point-min))
+      (while (not (eobp))
+        (let* ((bssid (geolocation--windows-bssid))
+               (sig (geolocation--windows-signal))
+               (chan (geolocation--windows-channel)))
+          (if (and bssid signal channel)
+              (push (list (cons 'bssid bssid)
+                          (cons 'signal sig)
+                          (cons 'channel chan))
+                    result)
+            (point-max))))
+      result)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Linux
