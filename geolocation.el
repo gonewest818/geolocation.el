@@ -126,19 +126,19 @@ Return a list of alists.  Each alist will contain these keys:
 
 (defun geolocation--windows-bssid ()
   "Search via regexp for the next BSSID."
-  (re-search-forward "\\s-*BSSID\\s-[0-9]+\\s-*:\\s-\\([a-f0-9:]+\\)")
-  (match-string 1))
+  (when (re-search-forward "\\s-*BSSID\\s-[0-9]+\\s-*:\\s-\\([a-f0-9:]+\\)" nil t)
+    (match-string-no-properties 1)))
 
 (defun geolocation--windows-signal ()
   "Search via regexp for the next Signal value."
-  (re-search-forward "\\s-*Signal\\s-*:\\s-\\([0-9:]+\\)")
-  (if-let (sig (match-string 1))
-      (- (/ (string-to-number sig) 2.0) 100)))
+  (when (re-search-forward "\\s-*Signal\\s-*:\\s-\\([0-9:]+\\)" nil t)
+    (if-let (sig (match-string-no-properties 1))
+        (- (/ (string-to-number sig) 2.0) 100))))
 
 (defun geolocation--windows-channel ()
   "Search via regexp for the next Channel number."
-  (re-search-forward "\\s-*Channel\\s-*:\\s-\\([0-9:]+\\)")
-  (match-string 1))
+  (when (re-search-forward "\\s-*Channel\\s-*:\\s-\\([0-9:]+\\)" nil t)
+    (match-string-no-properties 1)))
 
 (defun geolocation--windows-scan-wifi ()
   "Run \"netsh wlan show networks\" and parse the output.
@@ -159,7 +159,7 @@ Return a list of alists.  Each alist will contain these keys:
                           (cons 'signal sig)
                           (cons 'channel chan))
                     result)
-            (point-max))))
+            (goto-char (point-max)))))
       result)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
