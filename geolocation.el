@@ -5,7 +5,7 @@
 ;; Keywords: hardware
 ;; Package-Requires: ((emacs "25.1"))
 ;; URL: https://github.com/gonewest818/geolocation.el
-;; Version 0.1.0
+;; Version: 0.1.0
 
 ;; This file is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the
@@ -39,10 +39,11 @@
 
 ;;; Code:
 
-(require 'request)
 (require 'json)
+(require 'request)
+(require 'subr-x)
 
-; todo: defcustom
+;; todo: defcustom
 (setq geolocation-api-vendor :google)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -77,7 +78,8 @@ Return a list of alists.  Each alist will contain these keys:
                            (cons k (if (eq c 'int) (string-to-number v) v)))
                          '(str int str)
                          '(bssid signal channel)
-                         (split-string (buffer-substring (point) (point-at-eol))))
+                         (split-string (buffer-substring (point)
+                                                         (point-at-eol))))
               result)
         (beginning-of-line 2))
       result)))
@@ -152,7 +154,7 @@ Return a list of alists.  Each alist will contain these keys:
         (let* ((bssid (geolocation--windows-bssid))
                (sig (geolocation--windows-signal))
                (chan (geolocation--windows-channel)))
-          (if (and bssid signal channel)
+          (if (and bssid sig chan)
               (push (list (cons 'bssid bssid)
                           (cons 'signal sig)
                           (cons 'channel chan))
@@ -186,7 +188,7 @@ Return a list of alists.  Each alist will contain these keys:
           wifi))
 
 (defun geolocation--google-xform-location (response)
-  "Transform the Google Geolocation API response into the format needed."
+  "Transform the Google API response RESPONSE into the format needed."
   (let* ((r (request-response-data response))
          (loc (alist-get 'location r))
          (lat (alist-get 'lat loc))
@@ -215,10 +217,10 @@ Return a list of alists.  Each alist will contain these keys:
 ;; Unwired Labs geolocation api
 
 (setq geolocation-api-unwiredlabs-url
-;;    "https://us1.unwiredlabs.com/v2/process.php" ; Virginia
-;;    "https://us2.unwiredlabs.com/v2/process.php" ; San Francisco
-;;    "https://eu1.unwiredlabs.com/v2/process.php" ; France
-;;    "https://ap1.unwiredlabs.com/v2/process.php" ; Singapore
+      ;; "https://us1.unwiredlabs.com/v2/process.php" ; Virginia
+      ;; "https://us2.unwiredlabs.com/v2/process.php" ; San Francisco
+      ;; "https://eu1.unwiredlabs.com/v2/process.php" ; France
+      ;; "https://ap1.unwiredlabs.com/v2/process.php" ; Singapore
       "https://us2.unwiredlabs.com/v2/process.php")
 
 (setq geolocation-api-unwiredlabs-token

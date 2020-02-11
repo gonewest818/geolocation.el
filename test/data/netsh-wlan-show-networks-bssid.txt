@@ -1,0 +1,143 @@
+ 
+Interface name : Wi-Fi 
+There are 4 networks currently visible. 
+
+SSID 1 : ABCDE
+    Network type            : Infrastructure
+    Authentication          : WPA2-Personal
+    Encryption              : CCMP 
+    BSSID 1                 : ff:ff:8e:c4:5c:74
+         Signal             : 92%  
+         Radio type         : 802.11ac
+         Channel            : 153 
+         Basic rates (Mbps) : 6 12 24
+         Other rates (Mbps) : 9 18 36 48 54
+
+SSID 2 : 
+    Network type            : Infrastructure
+    Authentication          : WPA2-Enterprise
+    Encryption              : CCMP 
+    BSSID 1                 : ff:ff:ec:09:a5:66
+         Signal             : 89%  
+         Radio type         : 802.11ac
+         Channel            : 157 
+         Basic rates (Mbps) : 6
+         Other rates (Mbps) : 9 12 18 24 36 48 54
+    BSSID 2                 : ff:ff:ee:ff:c3:69
+         Signal             : 40%  
+         Radio type         : 802.11n
+         Channel            : 11 
+         Basic rates (Mbps) : 6 12 24
+         Other rates (Mbps) : 9 18 36 48 54
+    BSSID 3                 : ff:ff:12:9e:53:17
+         Signal             : 46%  
+         Radio type         : 802.11n
+         Channel            : 6 
+         Basic rates (Mbps) : 6
+         Other rates (Mbps) : 9 12 18 24 36 48 54
+    BSSID 4                 : ff:ff:12:9e:53:19
+         Signal             : 46%  
+         Radio type         : 802.11n
+         Channel            : 6 
+         Basic rates (Mbps) : 6
+         Other rates (Mbps) : 9 12 18 24 36 48 54
+    BSSID 5                 : ff:ff:b0:e4:03:05
+         Signal             : 65%  
+         Radio type         : 802.11a
+         Channel            : 40 
+         Basic rates (Mbps) :
+    BSSID 6                 : ff:ff:ee:ff:c1:05
+         Signal             : 65%  
+         Radio type         : 802.11n
+         Channel            : 11 
+         Basic rates (Mbps) : 6 12 24
+         Other rates (Mbps) : 9 18 36 48 54
+    BSSID 7                 : ff:ff:a0:42:b3:c8
+         Signal             : 50%  
+         Radio type         : 802.11n
+         Channel            : 6 
+         Basic rates (Mbps) : 1 2 5.5 6 11 12 24
+         Other rates (Mbps) : 9 18 36 48 54
+    BSSID 8                 : ff:ff:a0:42:b3:c8
+         Signal             : 43%  
+         Radio type         : 802.11n
+         Channel            : 6 
+         Basic rates (Mbps) : 1 2 5.5 6 11 12 24
+         Other rates (Mbps) : 9 18 36 48 54
+    BSSID 9                 : ff:ff:ec:09:a5:65
+         Signal             : 86%  
+         Radio type         : 802.11n
+         Channel            : 1 
+         Basic rates (Mbps) : 6
+         Other rates (Mbps) : 9 12 18 24 36 48 54
+    BSSID 10                 : ff:ff:ec:09:a5:65
+         Signal             : 86%  
+         Radio type         : 802.11n
+         Channel            : 1 
+         Basic rates (Mbps) : 6
+         Other rates (Mbps) : 9 12 18 24 36 48 54
+    BSSID 11                 : ff:ff:77:19:4a:d5
+         Signal             : 43%  
+         Radio type         : 802.11n
+         Channel            : 1 
+         Basic rates (Mbps) : 6
+         Other rates (Mbps) : 9 12 18 24 36 48 54
+    BSSID 12                 : ff:ff:77:19:4a:d7
+         Signal             : 60%  
+         Radio type         : 802.11n
+         Channel            : 1 
+         Basic rates (Mbps) : 6
+         Other rates (Mbps) : 9 12 18 24 36 48 54
+    BSSID 13                 : ff:ff:77:19:4a:d3
+         Signal             : 60%  
+         Radio type         : 802.11n
+         Channel            : 1 
+         Basic rates (Mbps) : 6
+         Other rates (Mbps) : 9 12 18 24 36 48 54
+    BSSID 14                 : ff:ff:ec:09:a5:65
+         Signal             : 86%  
+         Radio type         : 802.11n
+         Channel            : 1 
+         Basic rates (Mbps) : 6
+         Other rates (Mbps) : 9 12 18 24 36 48 54
+
+SSID 3 : XYZZY
+    Network type            : Infrastructure
+    Authentication          : WPA2-Personal
+    Encryption              : CCMP 
+    BSSID 1                 : ff:ff:f9:7d:25:2d
+         Signal             : 35%  
+         Radio type         : 802.11n
+         Channel            : 11 
+         Basic rates (Mbps) : 1 2 5.5 11
+         Other rates (Mbps) : 6 9 12 18 24 36 48 54
+
+SSID 4 : PLUGH
+    Network type            : Infrastructure
+    Authentication          : WPA2-Personal
+    Encryption              : CCMP 
+    BSSID 1                 : ff:ff:ec:09:a5:66
+         Signal             : 89%  
+         Radio type         : 802.11ac
+         Channel            : 157 
+         Basic rates (Mbps) : 6
+         Other rates (Mbps) : 9 12 18 24 36 48 54
+    BSSID 2                 : ff:ff:ee:ff:c1:06
+         Signal             : 57%  
+         Radio type         : 802.11ac
+         Channel            : 157 
+         Basic rates (Mbps) : 6 12 24
+         Other rates (Mbps) : 9 18 36 48 54
+    BSSID 3                 : ff:ff:ee:ff:c1:05
+         Signal             : 65%  
+         Radio type         : 802.11n
+         Channel            : 11 
+         Basic rates (Mbps) : 6 12 24
+         Other rates (Mbps) : 9 18 36 48 54
+    BSSID 4                 : ff:ff:ec:09:a5:65
+         Signal             : 86%  
+         Radio type         : 802.11n
+         Channel            : 1 
+         Basic rates (Mbps) : 6
+         Other rates (Mbps) : 9 12 18 24 36 48 54
+
