@@ -126,7 +126,8 @@ Return a list of alists.  Each alist will contain these keys:
 
 (defun geolocation--windows-bssid ()
   "Search via regexp for the next BSSID."
-  (when (re-search-forward "\\s-*BSSID\\s-[0-9]+\\s-*:\\s-\\([a-f0-9:]+\\)" nil t)
+  (when (re-search-forward
+         "\\s-*BSSID\\s-[0-9]+\\s-*:\\s-\\([a-f0-9:]+\\)" nil t)
     (match-string-no-properties 1)))
 
 (defun geolocation--windows-signal ()
