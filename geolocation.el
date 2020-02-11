@@ -1,4 +1,4 @@
-;;; geolocation.el --- obtain your current location
+;;; geolocation.el --- obtain your current location  -*- lexical-binding: t -*-
 
 ;; Author: Neil Okamoto <neil.okamoto+melpa@gmail.com>
 ;; Copyright (C) 2020  Neil Okamoto
