@@ -3,7 +3,7 @@
 ;; Author: Neil Okamoto <neil.okamoto+melpa@gmail.com>
 ;; Copyright (C) 2020  Neil Okamoto
 ;; Keywords: hardware
-;; Package-Requires: ((emacs "25.1"))
+;; Package-Requires: ((request "0.3.1") (emacs "25.1"))
 ;; URL: https://github.com/gonewest818/geolocation.el
 ;; Version: 0.1.0
 
