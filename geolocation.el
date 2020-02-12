@@ -43,8 +43,18 @@
 (require 'request)
 (require 'subr-x)
 
-;; todo: defcustom
-(setq geolocation-api-vendor :google)
+(defgroup geolocation nil
+  "Obtain your location via wifi access points"
+  :prefix "geolocation-"
+  :group 'hardware
+  :link '(url-link
+          :tag "Github" "https://github.com/gonewest818/geolocation.el"))
+
+(defcustom geolocation-api-vendor :google
+  "Select which third party geolocation API will be called."
+  :type '(radio (const :tag "Google Maps Geolocation API" :google)
+                (const :tag "Unwired Labs Location API" :unwiredlabs))
+  :group 'geolocation)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Macintosh
@@ -55,13 +65,28 @@
 ;; other packages exist to do that. We've chosen geolocation via wifi
 ;; because it's more broadly applicable to many operating systems.
 
-(setq geolocation--osx-airport-path
-      (concat "/System/Library/PrivateFrameworks/"
-              "Apple80211.framework/Versions/Current/Resources/"))
+(defgroup geolocation-system-osx nil
+  "macOS-specific settings for the geolocation library"
+  :prefix "geolocation-system-osx-"
+  :group 'geolocation)
 
-(setq geolocation--osx-airport-command
-      (concat geolocation--osx-airport-path
-              "airport --scan | cut -c 34-63 | tail -n +2"))
+(defcustom geolocation-system-osx-airport-path
+  (concat "/System/Library/PrivateFrameworks/"
+          "Apple80211.framework/Versions/Current/Resources/")
+  "Path to the Apple 'airport' binary on macOS.
+
+We need to specify this because the utility is not in a standard
+location.  It's unlikely users need to change this.  However
+we're exposing the setting as a customization in case Apple
+changes the location."
+  :type '(string)
+  :group 'geolocation-system-osx)
+
+(defcustom geolocation-system-osx-airport-command
+  "airport --scan | cut -c 34-63 | tail -n +2"
+  "Command line with arguments needed to invoke airport."
+  :type '(string)
+  :group 'geolocation-system-osx)
 
 (defun geolocation--osx-scan-wifi ()
   "Run the \"airport\" utility and parse the default output.
@@ -71,7 +96,8 @@ Return a list of alists.  Each alist will contain these keys:
   (with-temp-buffer
     (let ((coding-system-for-read 'utf-8)
           (result '()))
-      (shell-command geolocation--osx-airport-command t nil)
+      (shell-command (concat geolocation-system-osx-airport-path
+                             geolocation-system-osx-airport-command) t nil)
       (goto-char (point-min))
       (while (not (eobp))
         (push (cl-mapcar (lambda (c k v)
@@ -121,8 +147,16 @@ Return a list of alists.  Each alist will contain these keys:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Windows
 
-(setq geolocation--windows-netsh-command
-      "netsh wlan show networks mode=bssid")
+(defgroup geolocation-system-windows nil
+  "Windows-specific settings for the geolocation library"
+  :prefix "geolocation-system-windows-"
+  :group 'geolocation)
+
+(defcustom geolocation-system-windows-netsh-command
+  "netsh wlan show networks mode=bssid"
+  "Command line with arguments needed to invoke netsh."
+  :type '(string)
+  :group 'geolocation-system-windows)
 
 (defun geolocation--windows-bssid ()
   "Search via regexp for the next BSSID."
@@ -149,7 +183,7 @@ Return a list of alists.  Each alist will contain these keys:
   (with-temp-buffer
     (let ((coding-system-for-read 'utf-8)
           (result '()))
-      (shell-command geolocation--windows-netsh-command t nil)
+      (shell-command geolocation-system-windows-netsh-command t nil)
       (goto-char (point-min))
       (while (not (eobp))
         (let* ((bssid (geolocation--windows-bssid))
@@ -166,6 +200,17 @@ Return a list of alists.  Each alist will contain these keys:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Linux
 
+(defgroup geolocation-system-linux nil
+  "Linux-specific settings for the geolocation library"
+  :prefix "geolocation-system-linux-"
+  :group 'geolocation)
+
+(defcustom geolocation-system-linux-dbus-command
+  "echo not implemented"
+  "Command line with arguments needed to query dbus to scan wifi."
+  :type '(string)
+  :group 'geolocation-system-linux)
+
 (defun geolocation--linux-scan-wifi ()
   "Wifi scanning on Linux not yet implemented."
   (error "Wifi scanning on Linux not yet implemented"))
@@ -173,15 +218,47 @@ Return a list of alists.  Each alist will contain these keys:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Google geolocation api
 
-(setq geolocation-api-google-url
-      "https://www.googleapis.com/geolocation/v1/geolocate")
+(defgroup geolocation-api-google nil
+  "Configuration needed to call the Google Maps Geolocation API"
+  :prefix "geolocation-api-google-"
+  :group 'geolocation)
 
-(setq geolocation-api-google-token
-      (if-let ((pw (car (auth-source-search :host "googleapis.com"))))
-          (funcall (plist-get pw :secret))))
+(defcustom geolocation-api-google-url
+  "https://www.googleapis.com/geolocation/v1/geolocate"
+  "URL for the Google Maps Geolocation API."
+  :type '(string)
+  :group 'geolocation-api-google)
+
+(defcustom geolocation-api-google-token nil
+  "Authorization token for the Google Geolocation API.
+
+IMPORTANT NOTE: This customization is offered for the convenience
+of people who want to quickly set up and test this package.
+However you are strongly discouraged from leaving authorization
+tokens (which are like passwords) in your Emacs configurations as
+plainly readable text.  Setting this variable to nil will cause
+the library to retrieve your token via `auth-source' instead."
+  :type '(choice (const :tag "Retrieve token from `auth-source'" nil)
+                 (string :tag "Google API token"))
+  :group 'geolocation-api-google)
+
+(defcustom geolocation-api-google-auth-source-host "googleapis.com"
+  "The host name used for lookups in `auth-source`."
+  :type '(string)
+  :group 'geolocation-api-google)
+
+(defcustom geolocation-api-google-auth-source-user "geolocation.el"
+  "The user name used for lookups in `auth-source'."
+  :type '(string)
+  :group 'geolocation-api-google)
 
 (defun geolocation--google-xform-wifi (wifi)
-  "Transform WIFI list into the format needed for Google's API."
+  "Transform WIFI list into the format needed for Google's API.
+
+In particular Google wants the json payload to contain keys
+\"macAddress\", \"signalStrength\" and \"channel\" whereas the
+wifi scanning functions in the library produce different keys for
+those fields."
   (mapcar (lambda (x)
             (list (cons 'macAddress     (alist-get 'bssid x))
                   (cons 'signalStrength (alist-get 'signal x))
@@ -189,7 +266,12 @@ Return a list of alists.  Each alist will contain these keys:
           wifi))
 
 (defun geolocation--google-xform-location (response)
-  "Transform the Google API response RESPONSE into the format needed."
+  "Transform the Google API response RESPONSE into the format needed.
+
+In particular the Google API responds with a json object
+\"location\" that contains inside the current \"lat\" and
+\"lon\", whereas this library expects those keys to be flattened
+at the same level as \"accuracy\"."
   (let* ((r (request-response-data response))
          (loc (alist-get 'location r))
          (lat (alist-get 'lat loc))
@@ -199,6 +281,18 @@ Return a list of alists.  Each alist will contain these keys:
           (cons 'lon lng)
           (cons 'accuracy acc))))
 
+(defun geolocation--google-get-token ()
+  "Resolve the Google API token.
+
+If `geolocation-google-token' is non-nil, then use
+that.  Otherwise, retrieve the token via `auth-source-search'
+under the hostname `geolocation-api-google-auth-source-host' and
+username `geolocation-api-google-auth-source-user'."
+  (or geolocation-api-google-token
+      (auth-source-pick-first-password
+       :host geolocation-api-google-auth-source-host
+       :user geolocation-api-google-auth-source-user)))
+
 (defun geolocation--call-google-api (wifi)
   "Invoke the Google Geolocation REST API with WIFI data."
   (message "calling google api")
@@ -206,7 +300,7 @@ Return a list of alists.  Each alist will contain these keys:
          (response
           (request geolocation-api-google-url
             :type "POST"
-            :params (list (cons "key" geolocation-api-google-token))
+            :params (list (cons "key" (geolocation--google-get-token)))
             :data (json-encode (list (cons "wifiAccessPoints" wifi-g)))
             :parser #'json-read
             :sync t                    ; todo: make this an async call
@@ -217,16 +311,59 @@ Return a list of alists.  Each alist will contain these keys:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unwired Labs geolocation api
 
-(setq geolocation-api-unwiredlabs-url
-      ;; "https://us1.unwiredlabs.com/v2/process.php" ; Virginia
-      ;; "https://us2.unwiredlabs.com/v2/process.php" ; San Francisco
-      ;; "https://eu1.unwiredlabs.com/v2/process.php" ; France
-      ;; "https://ap1.unwiredlabs.com/v2/process.php" ; Singapore
-      "https://us2.unwiredlabs.com/v2/process.php")
+(defgroup geolocation-api-unwiredlabs nil
+  "Configuration needed to call the Unwired Labs Geolocation API."
+  :prefix "geolocation-api-unwiredlabs-"
+  :group 'geolocation)
 
-(setq geolocation-api-unwiredlabs-token
-      (if-let ((pw (car (auth-source-search :host "unwiredlabs.com"))))
-          (funcall (plist-get pw :secret))))
+(defcustom geolocation-api-unwiredlabs-url
+  "https://us2.unwiredlabs.com/v2/process.php"
+  "URL for the Unwired Labs Geolocation API."
+  :type '(choice (const :tag "US Virginia"
+                        "https://us1.unwiredlabs.com/v2/process.php")
+                 (const :tag "US San Francisco"
+                        "https://us2.unwiredlabs.com/v2/process.php")
+                 (const :tag "EU France"
+                        "https://eu1.unwiredlabs.com/v2/process.php")
+                 (const :tag "AP Singapore"
+                        "https://ap1.unwiredlabs.com/v2/process.php")
+                 (string :tag "Other"))
+  :group 'geolocation-api-unwiredlabs)
+
+(defcustom geolocation-api-unwiredlabs-token nil
+  "Authorization token for the Unwired Labs Geolocation API.
+
+IMPORTANT NOTE: This customization is offered for the convenience
+of people who want to quickly set up and test this package.
+However you are strongly discouraged from leaving authorization
+tokens (which are like passwords) in your Emacs configurations as
+plainly readable text.  Setting this variable to nil will cause
+the library to retrieve your token via `auth-source' instead."
+  :type '(choice (const :tag "Retrieve token from `auth-source'" nil)
+                 (string :tag "Unwired Labs API token"))
+  :group 'geolocation-api-unwiredlabs)
+
+(defcustom geolocation-api-unwiredlabs-auth-source-host "unwiredlabs.com"
+  "The host name used for lookups in `auth-source`."
+  :type '(string)
+  :group 'geolocation-api-unwiredlabs)
+
+(defcustom geolocation-api-unwiredlabs-auth-source-user "geolocation.el"
+  "The user name used for lookups in `auth-source'."
+  :type '(string)
+  :group 'geolocation-api-unwiredlabs)
+
+(defun geolocation--unwiredlabs-get-token ()
+  "Resolve the Unwired Labs API token.
+
+If `geolocation-api-unwiredlabs-token' is non-nil, then use that.
+Otherwise, retrieve the token via `auth-source-search' under the
+hostname `geolocation--unwiredlabs-auth-source-host' and username
+`geolocation--unwiredlabs-auth-source-user'."
+  (or geolocation-api-unwiredlabs-token
+      (auth-source-pick-first-password
+       :host geolocation-api-unwiredlabs-auth-source-host
+       :user geolocation-api-unwiredlabs-auth-source-user)))
 
 (defun geolocation--call-unwiredlabs-api (wifi)
   "Invoke the Unwiredlabs REST API with WIFI data."
@@ -234,8 +371,9 @@ Return a list of alists.  Each alist will contain these keys:
   (let ((response
          (request geolocation-api-unwiredlabs-url
            :type "POST"
-           :data (json-encode `(("token" . ,geolocation-api-unwiredlabs-token)
-                                ("wifi" . ,wifi)))
+           :data (json-encode
+                  `(("token" . ,(geolocation--unwiredlabs-get-token))
+                    ("wifi" . ,wifi)))
            :parser #'json-read
            :sync t                      ; todo: make this an async call
            :timeout 15)))
@@ -245,11 +383,12 @@ Return a list of alists.  Each alist will contain these keys:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public API
 
+;;;###autoload
 (defun geolocation-scan-wifi ()
   "Return a list of nearby wifi access points.
 The result is sorted by signal strength with the strongest first.
 
-Each item in the list is itself an alist with the following keys:
+Each item in the list is an alist with the following keys:
   `bssid'   : mac address of the access point
   `signal'  : relative signal strength or rssi
   `channel' : broadcast channel"
@@ -264,12 +403,13 @@ Each item in the list is itself an alist with the following keys:
                   (> (alist-get 'signal x)
                      (alist-get 'signal y))))))
 
+;;;###autoload
 (defun geolocation-get-position ()
   "Return our current latitude and longitude.
 
 The reply is an alist with at least the following keys:
-  `lat'      : the current location's latitude
-  `lon'      : the current location's longitude
+  `lat'      : latitude of the current position
+  `lon'      : longitude of the current position
   `accuracy' : accuracy of the estimate in meters
 
 Other keys may be included in the result, but are not guaranteed
