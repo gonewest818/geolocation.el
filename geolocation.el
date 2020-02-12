@@ -1,4 +1,4 @@
-;;; geolocation.el --- obtain your current location  -*- lexical-binding: t -*-
+;;; geolocation.el --- Get your location on Earth -*- lexical-binding: t -*-
 
 ;; Author: Neil Okamoto <neil.okamoto+melpa@gmail.com>
 ;; Copyright (C) 2020  Neil Okamoto
@@ -30,12 +30,66 @@
 ;; use the known locations of the wifi access points and the relative
 ;; strength of each signal to triangulate your latitude and longitude.
 
-;; WARNING: THIS PACKAGE COLLECTS INFORMATION THAT IMPLIES YOUR
-;; PHYSICAL LOCATION.  THAT DATA WILL BE SENT TO THIRD-PARTY
-;; GEOLOCATION SERVICES WHICH CAN PINPOINT YOUR LOCATION TYPICALLY
-;; WITHIN 100 METERS OR LESS.  WHILE THIS PACKAGE DOES NOT ITSELF
-;; STORE YOUR LOCATION, WE CANNOT GUARANTEE WHAT A GIVEN THIRD-PARTY
-;; SERVICE MAY DO WITH THE DATA IT RECEIVES IN THESE API TRANSACTIONS.
+;; The main entry points are:
+
+;; - `geolocation-get-position' which returns your estimated position as
+;;   an alist with the following keys:
+;;   - `lat' - latitude of the current position
+;;   - `lon' - longitude of the current position
+;;   - `accuracy' - an error radius, in meters
+
+;; - `geolocation-scan-wifi' which scans for nearby wifi access points
+;;   using available system utilites, and produces a complete list of
+;;   everything in range sorted by signal strength.
+;;   Returns a list of alists containing:
+;;   - `bssid' - mac address that uniquely identifies the AP
+;;   - `signal' - relative signal strength, or RSSI
+;;   - `channel' - transmission channel
+;;   At present, wifi scanning is supported on Mac OSX and Windows.
+;;   Linux support is planned but not yet implemented.
+
+;; You have a choice of third party services to use for the positioning:
+
+;; - Google Maps Geolocation API
+;;   https://developers.google.com/maps/documentation/geolocation/intro
+
+;; - Unwired Labs Location API
+;;   https://unwiredlabs.com/home
+
+;; This package offers a set of customizable variables you can use to
+;; select which service is used, declare your API access token, choose
+;; the nearest API endpoint, and so on.  Those settings can be found in
+;; `M-x customize`, then browse for "Environment", then "hardware", and
+;; then "Geolocation".
+
+;; By default, access tokens are expected to be accessed via the built-in
+;; `auth-source` package.  You can configure any backend, as this package
+;; only requires the token to be searchable via
+;; `auth-source-pick-first-password`.
+
+;; Rate Limits and Costs:
+
+;; Each of these services requires you to create your own account, and
+;; potentially provide billing information as well.  You will be agreeing
+;; to the vendor's end-user agreements including such things as
+;; acceptable usage policies and privacy terms, when you create your
+;; account.
+
+;; Care has been taken to choose services that include either a free
+;; tier, or equivalently, an allowance of a certain amount of usage per
+;; day or per month.  It's your responsibility to set up your account
+;; with those services, obtain and protect your token, and manage your
+;; usage of those APIs because there can be associated costs if your
+;; usage exceeds the usage terms of the subscription or plan you choose.
+
+;; WARNING: THIS PACKAGE COLLECTS INFORMATION THAT IMPLIES YOUR PHYSICAL
+;; LOCATION.  THAT DATA WILL BE SENT TO THIRD-PARTY GEOLOCATION SERVICES
+;; WHICH CAN PINPOINT YOUR LOCATION TYPICALLY WITHIN 100 METERS OR LESS.
+;; WHILE THIS PACKAGE DOES NOT ITSELF STORE YOUR LOCATION, WE CANNOT
+;; GUARANTEE WHAT A GIVEN THIRD-PARTY SERVICE MAY DO WITH THE DATA IT
+;; RECEIVES IN THESE API TRANSACTIONS.  RATHER, YOU UNDERSTAND AND AGREE
+;; TO THE PRIVACY AGREEMENTS AND END USER AGREEMENTS OF EACH OF THE
+;; INDIVIDUAL GEOLOCATION APIS YOU USE.
 
 ;;; Code:
 
@@ -44,7 +98,7 @@
 (require 'subr-x)
 
 (defgroup geolocation nil
-  "Obtain your location via wifi access points"
+  "Get your location on Earth"
   :prefix "geolocation-"
   :group 'hardware
   :link '(url-link
@@ -59,21 +113,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Macintosh
 
-;; Note: macOS provides a core location framework that is used for
+;; Note: OSX provides a core location framework that is used for
 ;; Apple's own applications. It is possible to write native code, or
 ;; possibly AppleScript code to interact with those frameworks, and
 ;; other packages exist to do that. We've chosen geolocation via wifi
 ;; because it's more broadly applicable to many operating systems.
 
 (defgroup geolocation-system-osx nil
-  "macOS-specific settings for the geolocation library"
+  "Mac OSX specific settings for the geolocation library"
   :prefix "geolocation-system-osx-"
   :group 'geolocation)
 
 (defcustom geolocation-system-osx-airport-path
   (concat "/System/Library/PrivateFrameworks/"
           "Apple80211.framework/Versions/Current/Resources/")
-  "Path to the Apple 'airport' binary on macOS.
+  "Path to the Apple 'airport' binary on Mac OSX.
 
 We need to specify this because the utility is not in a standard
 location.  It's unlikely users need to change this.  However
@@ -110,7 +164,7 @@ Return a list of alists.  Each alist will contain these keys:
         (beginning-of-line 2))
       result)))
 
-;; macOS "airport" utilty also outputs a property list in XML format
+;; The OSX "airport" utilty also outputs a property list in XML format
 ;; which in principle should be more reliable to parse, and contains
 ;; more interesting information than the human readable output.
 ;; However as of 2/1/2020 the "airport" utility truncates output when
@@ -405,7 +459,7 @@ Each item in the list is an alist with the following keys:
 
 ;;;###autoload
 (defun geolocation-get-position ()
-  "Return our current latitude and longitude.
+  "Return your estimated position in terms of latitude and longitude.
 
 The reply is an alist with at least the following keys:
   `lat'      : latitude of the current position
