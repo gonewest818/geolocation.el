@@ -220,9 +220,10 @@ Return a list of alists.  Each alist will contain these keys:
 
 (defun geolocation--windows-signal ()
   "Search via regexp for the next Signal value."
-  (when (re-search-forward "\\s-*Signal\\s-*:\\s-\\([0-9:]+\\)" nil t)
-    (if-let (sig (match-string-no-properties 1))
-        (- (/ (string-to-number sig) 2.0) 100))))
+  (when-let (sig (and
+                  (re-search-forward "\\s-*Signal\\s-*:\\s-\\([0-9:]+\\)" nil t)
+                  (match-string-no-properties 1)))
+    (- (/ (string-to-number sig) 2.0) 100)))
 
 (defun geolocation--windows-channel ()
   "Search via regexp for the next Channel number."
@@ -446,16 +447,16 @@ Each item in the list is an alist with the following keys:
   `bssid'   : mac address of the access point
   `signal'  : relative signal strength or rssi
   `channel' : broadcast channel"
-  (if-let ((aps (cond
-                 ((string-equal system-type "darwin")
-                  (geolocation--osx-scan-wifi))
-                 ((string-equal system-type "windows-nt")
-                  (geolocation--windows-scan-wifi))
-                 ((string-equal system-type "gnu/linux")
-                  (geolocation--linux-scan-wifi)))))
-      (sort aps (lambda (x y)
-                  (> (alist-get 'signal x)
-                     (alist-get 'signal y))))))
+  (when-let ((aps (cond
+                   ((string-equal system-type "darwin")
+                    (geolocation--osx-scan-wifi))
+                   ((string-equal system-type "windows-nt")
+                    (geolocation--windows-scan-wifi))
+                   ((string-equal system-type "gnu/linux")
+                    (geolocation--linux-scan-wifi)))))
+    (sort aps (lambda (x y)
+                (> (alist-get 'signal x)
+                   (alist-get 'signal y))))))
 
 ;;;###autoload
 (defun geolocation-get-position ()
@@ -468,11 +469,11 @@ The reply is an alist with at least the following keys:
 
 Other keys may be included in the result, but are not guaranteed
 to be supported going forward."
-  (if-let ((wifi (geolocation-scan-wifi)))
-      (cond ((eq :unwiredlabs geolocation-api-vendor)
-             (geolocation--call-unwiredlabs-api wifi))
-            ((eq :google geolocation-api-vendor)
-             (geolocation--call-google-api wifi)))))
+  (when-let ((wifi (geolocation-scan-wifi)))
+    (cond ((eq :unwiredlabs geolocation-api-vendor)
+           (geolocation--call-unwiredlabs-api wifi))
+          ((eq :google geolocation-api-vendor)
+           (geolocation--call-google-api wifi)))))
 
 (provide 'geolocation)
 ;;; geolocation.el ends here
