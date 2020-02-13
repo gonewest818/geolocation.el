@@ -297,7 +297,7 @@ the library to retrieve your token via `auth-source' instead."
   :group 'geolocation-api-google)
 
 (defcustom geolocation-api-google-auth-source-host "googleapis.com"
-  "The host name used for lookups in `auth-source`."
+  "The host name used for lookups in `auth-source'."
   :type '(string)
   :group 'geolocation-api-google)
 
@@ -398,7 +398,7 @@ the library to retrieve your token via `auth-source' instead."
   :group 'geolocation-api-unwiredlabs)
 
 (defcustom geolocation-api-unwiredlabs-auth-source-host "unwiredlabs.com"
-  "The host name used for lookups in `auth-source`."
+  "The host name used for lookups in `auth-source'."
   :type '(string)
   :group 'geolocation-api-unwiredlabs)
 
