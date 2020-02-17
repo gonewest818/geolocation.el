@@ -19,7 +19,7 @@ lint: .elpa
 	$(EMACS) $(BATCH) -l geolocation.el -f elisp-lint-files-batch $(ELS)
 	$(EMACS) $(BATCH) -l geolocation.el -f elisp-lint-files-batch \
 	                  --no-byte-compile \
-	                  --no-package-format \
+	                  --no-package-lint \
 	                  --no-checkdoc \
 	                  --no-check-declare $(TESTS)
 
@@ -35,6 +35,6 @@ submit-coverage: coverage.json
 clean:
 	rm -f $(OBJECTS) $(BACKUPS) geolocation-autoloads.el* coverage.json
 
-cleanelpa: clean
+cleanall: clean
 	rm -rf .emacs/elpa .emacs/quelpa .emacs/.emacs-custom.el* .elpa
 
