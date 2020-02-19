@@ -407,9 +407,10 @@ the library to retrieve your token via `auth-source' instead."
   "Transform WIFI list into the format needed for HERE's API.
 
 In particular HERE wants the json payload to contain just the
-\"mac\" address, but not the signal strength or channel."
+\"mac\" address, and \"powrx\" or signal strength."
   (mapcar (lambda (x)
-            (list (cons 'mac     (alist-get 'bssid x))))
+            (list (cons 'mac   (alist-get 'bssid x))
+                  (cons 'powrx (alist-get 'signal x))))
           wifi))
 
 (defun geolocation--here-xform-location (response)
