@@ -39,6 +39,7 @@ Linux support is planned but not yet implemented.
 You have a choice of third party services to use for the positioning:
 
 - [Google Maps Geolocation API](https://developers.google.com/maps/documentation/geolocation/intro)
+- [HERE Technologies Positioning API](https://developer.here.com/develop/rest-apis)
 - [Unwired Labs Location API](https://unwiredlabs.com/home)
 
 This package offers a set of customizable variables you can use to
@@ -91,6 +92,7 @@ INDIVIDUAL GEOLOCATION APIS YOU USE.
     - Linux : not yet implemented
   - get geolocation via third party APIs
     - [Google Maps Geolocation API](https://developers.google.com/maps/documentation/geolocation/intro)
+    - [HERE Technologies Positioning API](https://developer.here.com/develop/rest-apis)
     - [Unwired Labs Location API](https://unwiredlabs.com/home)
 
 ## Copyright

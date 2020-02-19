@@ -53,6 +53,9 @@
 ;; - Google Maps Geolocation API
 ;;   https://developers.google.com/maps/documentation/geolocation/intro
 
+;; - HERE Technologies Positioning API
+;;   https://developer.here.com/develop/rest-apis
+
 ;; - Unwired Labs Location API
 ;;   https://unwiredlabs.com/home
 
@@ -107,6 +110,7 @@
 (defcustom geolocation-api-vendor :google
   "Select which third party geolocation API will be called."
   :type '(radio (const :tag "Google Maps Geolocation API" :google)
+                (const :tag "HERE Technologies Positioning API" :here)
                 (const :tag "Unwired Labs Location API" :unwiredlabs))
   :group 'geolocation)
 
@@ -338,10 +342,10 @@ at the same level as \"accuracy\"."
 (defun geolocation--google-get-token ()
   "Resolve the Google API token.
 
-If `geolocation-google-token' is non-nil, then use
-that.  Otherwise, retrieve the token via `auth-source-search'
-under the hostname `geolocation-api-google-auth-source-host' and
-username `geolocation-api-google-auth-source-user'."
+If `geolocation-google-token' is non-nil, then use that.
+Otherwise, retrieve the token via `auth-source-search' under the
+hostname `geolocation-api-google-auth-source-host' and username
+`geolocation-api-google-auth-source-user'."
   (or geolocation-api-google-token
       (auth-source-pick-first-password
        :host geolocation-api-google-auth-source-host
@@ -361,6 +365,95 @@ username `geolocation-api-google-auth-source-user'."
             :timeout 15)))
     (when (= 200 (request-response-status-code response))
       (geolocation--google-xform-location response))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; HERE Technologoies positioning api
+
+(defgroup geolocation-api-here nil
+  "Configuration needed to call the HERE Technologies Positioning API"
+  :prefix "geolocation-api-here-"
+  :group 'geolocation)
+
+(defcustom geolocation-api-here-url
+  "https://pos.ls.hereapi.com/positioning/v1/locate"
+  "URL for the HERE Technologies Positioning API."
+  :type '(string)
+  :group 'geolocation-api-here)
+
+(defcustom geolocation-api-here-token nil
+  "Authorization token for the HERE Technologies Positioning API.
+
+IMPORTANT NOTE: This customization is offered for the convenience
+of people who want to quickly set up and test this package.
+However you are strongly discouraged from leaving authorization
+tokens (which are like passwords) in your Emacs configurations as
+plainly readable text.  Setting this variable to nil will cause
+the library to retrieve your token via `auth-source' instead."
+  :type '(choice (const :tag "Retrieve token from `auth-source'" nil)
+                 (string :tag "HERE Technologies API token"))
+  :group 'geolocation-api-here)
+
+(defcustom geolocation-api-here-auth-source-host "pos.ls.hereapi.com"
+  "The host name used for lookups in `auth-source'."
+  :type '(string)
+  :group 'geolocation-api-here)
+
+(defcustom geolocation-api-here-auth-source-user "geolocation.el"
+  "The user name used for lookups in `auth-source'."
+  :type '(string)
+  :group 'geolocation-api-here)
+
+(defun geolocation--here-xform-wifi (wifi)
+  "Transform WIFI list into the format needed for HERE's API.
+
+In particular HERE wants the json payload to contain just the
+\"mac\" address, but not the signal strength or channel."
+  (mapcar (lambda (x)
+            (list (cons 'mac     (alist-get 'bssid x))))
+          wifi))
+
+(defun geolocation--here-xform-location (response)
+  "Transform HERE's API response RESPONSE into the format needed.
+
+In particular the HERE Technologies API responds with a json
+object \"location\" that contains inside the current \"lat\",
+\"lon\" and \"accuracy\". We need to flatten that response."
+  (let* ((r (request-response-data response))
+         (loc (alist-get 'location r))
+         (lat (alist-get 'lat loc))
+         (lng (alist-get 'lng loc))
+         (acc (alist-get 'accuracy loc)))
+    (list (cons 'lat lat)
+          (cons 'lon lng)
+          (cons 'accuracy acc))))
+
+(defun geolocation--here-get-token ()
+  "Resolve the HERE Technologies API token.
+
+If `geolocation-here-token' is non-nil, then use that.
+Otherwise, retrieve the token via `auth-source-search' under the
+hostname `geolocation-api-here-auth-source-host' and username
+`geolocation-api-here-auth-source-user'."
+  (or geolocation-api-here-token
+      (auth-source-pick-first-password
+       :host geolocation-api-here-auth-source-host
+       :user geolocation-api-here-auth-source-user)))
+
+(defun geolocation--call-here-api (wifi)
+  "Invoke the HERE Technologies REST API with WIFI data."
+  (message "calling here api")
+  (let* ((wifi-g (geolocation--here-xform-wifi wifi))
+         (response
+          (request geolocation-api-here-url
+            :type "POST"
+            :params (list (cons "apiKey" (geolocation--here-get-token)))
+            :headers '(("Content-Type" . "application/json"))
+            :data (json-encode (list (cons "wlan" wifi-g)))
+            :parser #'json-read
+            :sync t                    ; todo: make this an async call
+            :timeout 15)))
+    (when (= 200 (request-response-status-code response))
+      (geolocation--here-xform-location response))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unwired Labs geolocation api
@@ -469,10 +562,12 @@ The reply is an alist with at least the following keys:
 Other keys may be included in the result, but are not guaranteed
 to be supported going forward."
   (when-let ((wifi (geolocation-scan-wifi)))
-    (cond ((eq :unwiredlabs geolocation-api-vendor)
-           (geolocation--call-unwiredlabs-api wifi))
-          ((eq :google geolocation-api-vendor)
-           (geolocation--call-google-api wifi)))))
+    (cond ((eq :google geolocation-api-vendor)
+           (geolocation--call-google-api wifi))
+          ((eq :here geolocation-api-vendor)
+           (geolocation--call-here-api wifi))
+          ((eq :unwiredlabs geolocation-api-vendor)
+           (geolocation--call-unwiredlabs-api wifi)))))
 
 (provide 'geolocation)
 ;;; geolocation.el ends here
