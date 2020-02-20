@@ -79,21 +79,73 @@ INDIVIDUAL GEOLOCATION APIS YOU USE.
 
 ## Documentation
 
-- TBD documentation
-  - how to sign up and obtain tokens
-  - how to protect tokens using `auth-sources'
+### Obtaining the API token
+
+Choose one of the following services and follow the corresponding link.
+In each case you're going to have to create a developer account with the
+company subject to the service's pricing and terms.
+
+You only need one of the following:
+- [Google Maps Geolocation API](https://developers.google.com/maps/documentation/geolocation/intro)
+- [HERE Technologies Positioning API](https://developer.here.com/develop/rest-apis)
+- [Unwired Labs Location API](https://unwiredlabs.com/home)
+
+Once you have an account, you will be able to generate an API token.
+Copy down that token (it's typically a long string of numbers and letters)
+and store it somewhere safe (see next section).
+
+### Protecting your token using `auth-sources`
+
+The idea here is to configure `auth-sources` and select a backend
+for your passwords to be stored.  Assuming you use a GnuPG encrypted
+file named `~/.authinfo.gpg` then that file needs to contain a line
+like this:
+
+``` shell
+machine googleapis.com user geolocation.el password "#############"
+```
+
+The `password` field must contain the token you obtained when you
+created your account.  The `machine` and `user` fields must match the
+values of the corresponding customizable variables described below,
+and if you're in doubt, the default user and hostname will be fine.
+
+See the article ["Keeping Secrets in Emacs with GnuPG and Auth
+Sources"](https://www.masteringemacs.org/article/keeping-secrets-in-emacs-gnupg-auth-sources)
+for detailed information about using the `auth-sources` library.
+
+### Configuration settings
+
+To configure the package use `M-x customize` and browse to
+"Environment" then "Hardware" and finally "Geolocation".
+
+You will need to customize `geolocation-api-vendor` to select the
+service you want to use. Accepted values are `:google` (default),
+`:here` and `:unwiredlabs`.
+
+Then you need to set the host and usernames so this library can
+find your token in `auth-sources`. Those are:
+
+- Google
+  - `geolocation-api-google-auth-source-host` (default is "googleapis.com")
+  - `geolocation-api-google-auth-source-user` (default "geolocation.el")
+- HERE
+  - `geolocation-api-here-auth-source-host` (default "pos.ls.hereapi.com")
+  - `geolocation-api-here-auth-source-user` (default "geolocation.el")
+- Unwired Labs
+  - `geolocation-api-unwiredlabs-auth-source-host`  (default "unwiredlabs.com")
+  - `geolocation-api-unwiredlabs-auth-source-user` (default "geolocation.el")
+
+In ordinary situations you won't need to customize anything else.
 
 ## Changelog:
 
-- first snapshot
-  - scan wifi access points using available system utilities
-    - OSX : use the "airport" utility
-    - Windows : use "netsh wlan show networks"
-    - Linux : not yet implemented
-  - get geolocation via third party APIs
-    - [Google Maps Geolocation API](https://developers.google.com/maps/documentation/geolocation/intro)
-    - [HERE Technologies Positioning API](https://developer.here.com/develop/rest-apis)
-    - [Unwired Labs Location API](https://unwiredlabs.com/home)
+- First snapshot released to MELPA ({include date when released})
+  - Scan wifi access points using available system utilities
+    - OSX: use the "airport" utility
+    - Windows: use "netsh wlan show networks"
+    - Linux:  not yet implemented
+  - Get geolocation via third party APIs (Google, HERE, and Unwired Labs)
 
 ## Copyright
 
