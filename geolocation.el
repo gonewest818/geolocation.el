@@ -3,9 +3,9 @@
 ;; Author: Neil Okamoto <neil.okamoto+melpa@gmail.com>
 ;; Copyright (C) 2020  Neil Okamoto
 ;; Keywords: hardware
-;; Package-Requires: ((request "0.3.1") (emacs "25.1"))
+;; Package-Requires: ((request "0.3.1") (request-deferred "0.3.2") (emacs "25.1"))
 ;; URL: https://github.com/gonewest818/geolocation.el
-;; Version: 0.1.0
+;; Version: 0.2.0
 
 ;; This file is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the
@@ -97,7 +97,9 @@
 ;;; Code:
 
 (require 'json)
+(require 'deferred)
 (require 'request)
+(require 'request-deferred)
 (require 'subr-x)
 
 (defgroup geolocation nil
@@ -113,6 +115,35 @@
                 (const :tag "HERE Technologies Positioning API" :here)
                 (const :tag "Unwired Labs Location API" :unwiredlabs))
   :group 'geolocation)
+
+(defcustom geolocation-update-frequency 300
+  "Frequency in seconds how often location is calculated.
+
+The work will be done asynchronously.  The resulting value will
+be stored in `geolocation-location', and after updating your
+position `geolocation-update-hook' will be called.")
+
+(defcustom geolocation-update-hook nil
+  "Hook functions to be run when the location is updated.
+
+These hooks should be functions with no arguments.  When the hook
+is called, the value in `geolocation-location' will have been
+updated recently.  If the hook function is interested in knowing
+when the location has physically changed, then the hook will need
+to have saved a previous set of coordinates to compute the
+distance between the previous and new coordinates."
+  :type '(repeat symbol)
+  :group 'geolocation)
+
+(defvar geolocation-location nil
+  "The most recently scanned location.
+
+Value is nil if the position is unknown.  Otherwise the value is
+an alist with the following keys:
+  `latitude'  : latitude of the current position
+  `longitude' : longitude of the current position
+  `accuracy'  : accuracy of the estimate in meters
+  `timestamp' : timestamp when this position was obtained")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Macintosh
@@ -167,6 +198,32 @@ Return a list of alists.  Each alist will contain these keys:
               result)
         (beginning-of-line 2))
       result)))
+
+
+;; async wifi scan
+;;
+;; (deferred:$
+;;   (deferred:next
+;;     (lambda () (message "starting")))
+;;   (deferred:process-shell-buffer "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -s | cut -c 34-63 | tail -n +2")
+;;   (deferred:nextc it
+;;     (lambda (x)
+;;       (let ((result nil))
+;;         (with-current-buffer x
+;;           (goto-char (point-min))
+;;           (while (not (eobp))
+;;             (push (cl-mapcar (lambda (c k v)
+;;                                (cons k (if (eq c 'int) (string-to-number v) v)))
+;;                              '(str int str)
+;;                              '(bssid signal channel)
+;;                              (split-string (buffer-substring (point)
+;;                                                              (point-at-eol))))
+;;                   result)
+;;             (beginning-of-line 2))
+;;           result))))
+;;   (deferred:nextc it
+;;     (lambda (x) (message "%s" x))))
+
 
 ;; The OSX "airport" utilty also outputs a property list in XML format
 ;; which in principle should be more reliable to parse, and contains
