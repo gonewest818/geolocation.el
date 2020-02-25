@@ -431,7 +431,8 @@ hostname `geolocation-api-google-auth-source-host' and username
 
 (defun geolocation--call-google-api (wifi callback)
   "Make asynch Google API request with WIFI data and send to CALLBACK.
-The CALLBACK is expected to store the resulting location data."
+The CALLBACK is expected to store the resulting location data.
+Return the deferred object containing the result of CALLBACK."
   (message "calling google api")
   (let ((token (geolocation--google-get-token))
         (wifi-g (geolocation--google-xform-wifi wifi)))
@@ -525,21 +526,29 @@ hostname `geolocation-api-here-auth-source-host' and username
        :host geolocation-api-here-auth-source-host
        :user geolocation-api-here-auth-source-user)))
 
-(defun geolocation--call-here-api (wifi)
-  "Invoke the HERE Technologies REST API with WIFI data."
+(defun geolocation--call-here-api (wifi callback)
+  "Make asynch HERE API request with WIFI data and send to CALLBACK.
+The CALLBACK is expected to store the resulting location data.
+Return the deferred object containing the result of CALLBACK."
   (message "calling here api")
-  (let* ((wifi-g (geolocation--here-xform-wifi wifi))
-         (response
-          (request geolocation-api-here-url
-            :type "POST"
-            :params (list (cons "apiKey" (geolocation--here-get-token)))
-            :headers '(("Content-Type" . "application/json"))
-            :data (json-encode (list (cons "wlan" wifi-g)))
-            :parser #'json-read
-            :sync t                    ; todo: make this an async call
-            :timeout 15)))
-    (when (= 200 (request-response-status-code response))
-      (geolocation--here-xform-location response))))
+  (let ((token (geolocation--here-get-token))
+        (wifi-g (geolocation--here-xform-wifi wifi)))
+    (deferred:$
+      (request-deferred
+       geolocation-api-here-url
+       :type "POST"
+       :params (list (cons "apiKey" token))
+       :headers '(("Content-Type" . "application/json"))
+       :data (json-encode (list (cons "wlan" wifi-g)))
+       :parser #'json-read
+       :timeout 15)
+      (deferred:nextc it
+        (lambda (response)
+          (when (= 200 (request-response-status-code response))
+            (geolocation--here-xform-location response))))
+      (deferred:nextc it
+        (lambda (location)
+          (funcall callback location))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unwired Labs geolocation api
@@ -598,20 +607,27 @@ hostname `geolocation--unwiredlabs-auth-source-host' and username
        :host geolocation-api-unwiredlabs-auth-source-host
        :user geolocation-api-unwiredlabs-auth-source-user)))
 
-(defun geolocation--call-unwiredlabs-api (wifi)
-  "Invoke the Unwiredlabs REST API with WIFI data."
+(defun geolocation--call-unwiredlabs-api (wifi callback)
+  "Make asych Unwiredlabs API request with WIFI data and send to CALLBACK.
+The CALLBACK is expected to store the resulting locatoin data.
+Return the deferred onject containing the result of CALLBACK."
   (message "calling unwiredlabs api")
-  (let ((response
-         (request geolocation-api-unwiredlabs-url
-           :type "POST"
-           :data (json-encode
-                  `(("token" . ,(geolocation--unwiredlabs-get-token))
-                    ("wifi" . ,wifi)))
-           :parser #'json-read
-           :sync t                      ; todo: make this an async call
-           :timeout 15)))
-    (when (= 200 (request-response-status-code response))
-      (request-response-data response))))
+  (deferred:$
+    (request-deferred
+     geolocation-api-unwiredlabs-url
+     :type "POST"
+     :data (json-encode
+            `(("token" . ,(geolocation--unwiredlabs-get-token))
+              ("wifi" . ,wifi)))
+     :parser #'json-read
+     :timeout 15)
+    (deferred:nextc it
+      (lambda (response)
+        (when (= 200 (request-response-status-code response))
+          (request-response-data response))))
+    (deferred:nextc it
+      (lambda (location)
+        (funcall callback location)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public API
