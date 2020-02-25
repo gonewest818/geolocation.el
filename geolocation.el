@@ -645,23 +645,31 @@ Return a deferred object for chaining further operations."
     (geolocation--linux-scan-wifi callback))))
 
 ;;;###autoload
-(defun geolocation-get-position ()
-  "Return your estimated position in terms of latitude and longitude.
-
-The reply is an alist with at least the following keys:
+(defun geolocation-get-position (&optional callback)
+  "Obtain your estimated position in terms of latitude and longitude.
+The result is sent to CALLBACK as an alist with the following keys:
   `lat'      : latitude of the current position
   `lon'      : longitude of the current position
   `accuracy' : accuracy of the estimate in meters
 
 Other keys may be included in the result, but are not guaranteed
 to be supported going forward."
-  (when-let ((wifi (geolocation-scan-wifi)))
-    (cond ((eq :google geolocation-api-vendor)
-           (geolocation--call-google-api wifi))
-          ((eq :here geolocation-api-vendor)
-           (geolocation--call-here-api wifi))
-          ((eq :unwiredlabs geolocation-api-vendor)
-           (geolocation--call-unwiredlabs-api wifi)))))
+
+  ;; TODO: learn how to dynamically chain deferreds and then
+  ;; we don't have to nest callbacks in this way.
+
+  (geolocation-scan-wifi
+   (lambda (wifi)
+     ;; This lambda is the callback for `-scan-wifi'.
+     ;; it receives the wifi list and forwards it to the
+     ;; selected api vendor.
+     (cond ((eq :google geolocation-api-vendor)
+            (geolocation--call-google-api wifi callback))
+           ((eq :here geolocation-api-vendor)
+            (geolocation--call-here-api wifi callback))
+           ((eq :unwiredlabs geolocation-api-vendor)
+            (geolocation--call-unwiredlabs-api wifi callback))))))
+
 
 (provide 'geolocation)
 ;;; geolocation.el ends here
