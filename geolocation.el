@@ -178,13 +178,6 @@ function is substituted instead."
         (message "end: geolocation--shell-command-async")
         x))))
 
-;; test the deferred chain
-;; (geolocation--shell-command-async
-;;   aap
-;;   #'geolocation--osx-parse-wifi
-;;   (lambda (x) (message "%s" x)))
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Macintosh
 
@@ -310,15 +303,10 @@ Return a deferred object for chaining further operations."
   (when (re-search-forward "\\s-*Channel\\s-*:\\s-\\([0-9:]+\\)" nil t)
     (match-string-no-properties 1)))
 
-(defun geolocation--windows-scan-wifi ()
-  "Run \"netsh wlan show networks\" and parse the output.
-
-Return a list of alists.  Each alist will contain these keys:
-`bssid', `signal' and `channel'."
-  (with-temp-buffer
-    (let ((coding-system-for-read 'utf-8)
-          (result '()))
-      (shell-command geolocation-system-windows-netsh-command t nil)
+(defun geolocation--windows-parse-wifi (buffer)
+  "Parse output from the netsh command in BUFFER."
+  (let ((result nil))
+    (with-current-buffer buffer
       (goto-char (point-min))
       (while (not (eobp))
         (let* ((bssid (geolocation--windows-bssid))
@@ -329,8 +317,17 @@ Return a list of alists.  Each alist will contain these keys:
                           (cons 'signal sig)
                           (cons 'channel chan))
                     result)
-            (goto-char (point-max)))))
-      result)))
+            (goto-char (point-max))))))
+    (kill-buffer buffer)
+    result))
+
+(defun geolocation--windows-scan-wifi (&optional callback)
+  "Scan wifi asynchronously, and optionally call CALLBACK with result.
+Return a deferred object for chaining further operations."
+  (geolocation--shell-command-async
+   geolocation-system-windows-netsh-command
+   #'geolocation--windows-parse-wifi
+   callback))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Linux
