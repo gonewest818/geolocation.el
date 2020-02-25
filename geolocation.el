@@ -3,7 +3,7 @@
 ;; Author: Neil Okamoto <neil.okamoto+melpa@gmail.com>
 ;; Copyright (C) 2020  Neil Okamoto
 ;; Keywords: hardware
-;; Package-Requires: ((request "0.3.1") (request-deferred "0.3.2") (emacs "25.1"))
+;; Package-Requires: ((request-deferred "0.3.2") (deferred "0.5.1") (emacs "25.1"))
 ;; URL: https://github.com/gonewest818/geolocation.el
 ;; Version: 0.2.0
 
@@ -98,7 +98,6 @@
 
 (require 'json)
 (require 'deferred)
-(require 'request)
 (require 'request-deferred)
 (require 'subr-x)
 
@@ -169,7 +168,7 @@ function is substituted instead."
     (deferred:process-shell-buffer command)
     (deferred:nextc it parser)
     (deferred:nextc it
-      (lambda (x)
+      (lambda (x)                       ; sorted by strength
         (sort x (lambda (i j)
                   (> (alist-get 'signal i)
                      (alist-get 'signal j))))))
@@ -430,20 +429,27 @@ hostname `geolocation-api-google-auth-source-host' and username
        :host geolocation-api-google-auth-source-host
        :user geolocation-api-google-auth-source-user)))
 
-(defun geolocation--call-google-api (wifi)
-  "Invoke the Google Geolocation REST API with WIFI data."
+(defun geolocation--call-google-api (wifi callback)
+  "Make asynch Google API request with WIFI data and send to CALLBACK.
+The CALLBACK is expected to store the resulting location data."
   (message "calling google api")
-  (let* ((wifi-g (geolocation--google-xform-wifi wifi))
-         (response
-          (request geolocation-api-google-url
-            :type "POST"
-            :params (list (cons "key" (geolocation--google-get-token)))
-            :data (json-encode (list (cons "wifiAccessPoints" wifi-g)))
-            :parser #'json-read
-            :sync t                    ; todo: make this an async call
-            :timeout 15)))
-    (when (= 200 (request-response-status-code response))
-      (geolocation--google-xform-location response))))
+  (let ((token (geolocation--google-get-token))
+        (wifi-g (geolocation--google-xform-wifi wifi)))
+    (deferred:$
+      (request-deferred
+       geolocation-api-google-url
+       :type "POST"
+       :params (list (cons "key" token))
+       :data (json-encode (list (cons "wifiAccessPoints" wifi-g)))
+       :parser #'json-read
+       :timeout 15)
+      (deferred:nextc it
+        (lambda (response)
+          (when (= 200 (request-response-status-code response))
+            (geolocation--google-xform-location response))))
+      (deferred:nextc it
+        (lambda (location)
+          (funcall callback location))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; HERE Technologoies positioning api
