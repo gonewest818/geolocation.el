@@ -199,30 +199,57 @@ Return a list of alists.  Each alist will contain these keys:
         (beginning-of-line 2))
       result)))
 
+(defun geolocation--osx-parse-wifi (buffer)
+  (let ((result nil))
+    (with-current-buffer buffer
+      (goto-char (point-min))
+      (while (not (eobp))
+        (push (cl-mapcar (lambda (c k v)
+                           (cons k (if (eq c 'int) (string-to-number v) v)))
+                         '(str int str)
+                         '(bssid signal channel)
+                         (split-string (buffer-substring (point)
+                                                         (point-at-eol))))
+              result)
+        (beginning-of-line 2)))
+    (kill-buffer buffer)
+    result))
 
-;; async wifi scan
-;;
-;; (deferred:$
-;;   (deferred:next
-;;     (lambda () (message "starting")))
-;;   (deferred:process-shell-buffer "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -s | cut -c 34-63 | tail -n +2")
-;;   (deferred:nextc it
-;;     (lambda (x)
-;;       (let ((result nil))
-;;         (with-current-buffer x
-;;           (goto-char (point-min))
-;;           (while (not (eobp))
-;;             (push (cl-mapcar (lambda (c k v)
-;;                                (cons k (if (eq c 'int) (string-to-number v) v)))
-;;                              '(str int str)
-;;                              '(bssid signal channel)
-;;                              (split-string (buffer-substring (point)
-;;                                                              (point-at-eol))))
-;;                   result)
-;;             (beginning-of-line 2))
-;;           result))))
-;;   (deferred:nextc it
-;;     (lambda (x) (message "%s" x))))
+(defun geolocation--shell-command-async (command parser &optional callback)
+  "Invoke COMMAND in a shell, run PARSER, and optionally pass to CALLBACK.
+The command and parser will run in a deferred chain that does not
+block the calling thread.  This function returns a deferred object.
+
+Within the deferred chain the PARSER will be invoked with a
+single argument which is the buffer containing the output of
+COMMAND.  It is the responsibility of PARSER to delete the buffer
+when done.
+
+If a CALLBACK is provided, it will be invoked with the output of
+the PARSER.  It is the responsibility of the CALLBACK to return
+the value it was passed, so that further callbacks can be added
+to the chain.  If no CALLBACK is provided then an \"identity\"
+function is substituted instead."
+  (deferred:$
+    (deferred:next                      ; TODO: silence this
+      (lambda () (message "start: geolocation--shell-command-async")))
+    (deferred:process-shell-buffer command)
+    (deferred:nextc it parser)
+    (deferred:nextc it
+      (lambda (x)
+        (if callback                    ; e.g. to save wifi data
+            (funcall callback x)
+          x)))
+    (deferred:nextc it                  ; TODO: silence this
+      (lambda (x)
+        (message "end: geolocation--shell-command-async")
+        x))))
+
+;; test the deferred chain
+;; (geolocation--shell-command-async
+;;   aap
+;;   #'geolocation--osx-parse-wifi
+;;   (lambda (x) (message "%s" x)))
 
 
 ;; The OSX "airport" utilty also outputs a property list in XML format
