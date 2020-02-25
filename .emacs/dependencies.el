@@ -9,7 +9,10 @@
 (use-package undercover
   :ensure t)
 
-(use-package request
+(use-package deferred
+  :ensure t)
+
+(use-package request-deferred
   :ensure t)
 
 ;;; dependencies.el ends here
