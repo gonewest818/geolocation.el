@@ -146,74 +146,7 @@ an alist with the following keys:
   `timestamp' : timestamp when this position was obtained")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Macintosh
-
-;; Note: OSX provides a core location framework that is used for
-;; Apple's own applications. It is possible to write native code, or
-;; possibly AppleScript code to interact with those frameworks, and
-;; other packages exist to do that. We've chosen geolocation via wifi
-;; because it's more broadly applicable to many operating systems.
-
-(defgroup geolocation-system-osx nil
-  "Mac OSX specific settings for the geolocation library"
-  :prefix "geolocation-system-osx-"
-  :group 'geolocation)
-
-(defcustom geolocation-system-osx-airport-path
-  (concat "/System/Library/PrivateFrameworks/"
-          "Apple80211.framework/Versions/Current/Resources/")
-  "Path to the Apple 'airport' binary on Mac OSX.
-
-We need to specify this because the utility is not in a standard
-location.  It's unlikely users need to change this.  However
-we're exposing the setting as a customization in case Apple
-changes the location."
-  :type '(string)
-  :group 'geolocation-system-osx)
-
-(defcustom geolocation-system-osx-airport-command
-  "airport --scan | cut -c 34-63 | tail -n +2"
-  "Command line with arguments needed to invoke airport."
-  :type '(string)
-  :group 'geolocation-system-osx)
-
-(defun geolocation--osx-scan-wifi ()
-  "Run the \"airport\" utility and parse the default output.
-
-Return a list of alists.  Each alist will contain these keys:
-`bssid', `signal' and `channel'."
-  (with-temp-buffer
-    (let ((coding-system-for-read 'utf-8)
-          (result '()))
-      (shell-command (concat geolocation-system-osx-airport-path
-                             geolocation-system-osx-airport-command) t nil)
-      (goto-char (point-min))
-      (while (not (eobp))
-        (push (cl-mapcar (lambda (c k v)
-                           (cons k (if (eq c 'int) (string-to-number v) v)))
-                         '(str int str)
-                         '(bssid signal channel)
-                         (split-string (buffer-substring (point)
-                                                         (point-at-eol))))
-              result)
-        (beginning-of-line 2))
-      result)))
-
-(defun geolocation--osx-parse-wifi (buffer)
-  (let ((result nil))
-    (with-current-buffer buffer
-      (goto-char (point-min))
-      (while (not (eobp))
-        (push (cl-mapcar (lambda (c k v)
-                           (cons k (if (eq c 'int) (string-to-number v) v)))
-                         '(str int str)
-                         '(bssid signal channel)
-                         (split-string (buffer-substring (point)
-                                                         (point-at-eol))))
-              result)
-        (beginning-of-line 2)))
-    (kill-buffer buffer)
-    result))
+;; Utilities
 
 (defun geolocation--shell-command-async (command parser &optional callback)
   "Invoke COMMAND in a shell, run PARSER, and optionally pass to CALLBACK.
@@ -251,6 +184,66 @@ function is substituted instead."
 ;;   #'geolocation--osx-parse-wifi
 ;;   (lambda (x) (message "%s" x)))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Macintosh
+
+;; Note: OSX provides a core location framework that is used for
+;; Apple's own applications. It is possible to write native code, or
+;; possibly AppleScript code to interact with those frameworks, and
+;; other packages exist to do that. We've chosen geolocation via wifi
+;; because it's more broadly applicable to many operating systems.
+
+(defgroup geolocation-system-osx nil
+  "Mac OSX specific settings for the geolocation library"
+  :prefix "geolocation-system-osx-"
+  :group 'geolocation)
+
+(defcustom geolocation-system-osx-airport-path
+  (concat "/System/Library/PrivateFrameworks/"
+          "Apple80211.framework/Versions/Current/Resources/")
+  "Path to the Apple 'airport' binary on Mac OSX.
+
+We need to specify this because the utility is not in a standard
+location.  It's unlikely users need to change this.  However
+we're exposing the setting as a customization in case Apple
+changes the location."
+  :type '(string)
+  :group 'geolocation-system-osx)
+
+(defcustom geolocation-system-osx-airport-command
+  "airport --scan | cut -c 34-63 | tail -n +2"
+  "Command line with arguments needed to invoke airport."
+  :type '(string)
+  :group 'geolocation-system-osx)
+
+(defun geolocation--osx-parse-wifi (buffer)
+  "Parse output from the airport command in BUFFER."
+  (let ((result nil))
+    (with-current-buffer buffer
+      (goto-char (point-min))
+      (while (not (eobp))
+        ;; airport output can be split on whitespace, and
+        ;; then this lambda builds cons pairs for each field
+        (push (cl-mapcar (lambda (c k v)
+                           (cons k (if (eq c 'int) (string-to-number v) v)))
+                         '(str int str)
+                         '(bssid signal channel)
+                         (split-string (buffer-substring (point)
+                                                         (point-at-eol))))
+              result)
+        (beginning-of-line 2)))
+    (kill-buffer buffer)
+    result))
+
+(defun geolocation--osx-scan-wifi (&optional callback)
+  "Scan wifi asynchronously, and optionally call CALLBACK with result.
+Return a deferred object for chaining further operations."
+  (geolocation--shell-command-async
+   (concat geolocation-system-osx-airport-path
+           geolocation-system-osx-airport-command)
+   #'geolocation--osx-parse-wifi
+   callback))
 
 ;; The OSX "airport" utilty also outputs a property list in XML format
 ;; which in principle should be more reliable to parse, and contains
