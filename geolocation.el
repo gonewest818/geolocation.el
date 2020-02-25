@@ -170,6 +170,11 @@ function is substituted instead."
     (deferred:nextc it parser)
     (deferred:nextc it
       (lambda (x)
+        (sort x (lambda (i j)
+                  (> (alist-get 'signal i)
+                     (alist-get 'signal j))))))
+    (deferred:nextc it
+      (lambda (x)
         (if callback                    ; e.g. to save wifi data
             (funcall callback x)
           x)))
@@ -606,24 +611,16 @@ hostname `geolocation--unwiredlabs-auth-source-host' and username
 ;; Public API
 
 ;;;###autoload
-(defun geolocation-scan-wifi ()
-  "Return a list of nearby wifi access points.
-The result is sorted by signal strength with the strongest first.
-
-Each item in the list is an alist with the following keys:
-  `bssid'   : mac address of the access point
-  `signal'  : relative signal strength or rssi
-  `channel' : broadcast channel"
-  (when-let ((aps (cond
-                   ((string-equal system-type "darwin")
-                    (geolocation--osx-scan-wifi))
-                   ((string-equal system-type "windows-nt")
-                    (geolocation--windows-scan-wifi))
-                   ((string-equal system-type "gnu/linux")
-                    (geolocation--linux-scan-wifi)))))
-    (sort aps (lambda (x y)
-                (> (alist-get 'signal x)
-                   (alist-get 'signal y))))))
+(defun geolocation-scan-wifi (&optional callback)
+  "Scan wifi asynchronously, and optionally call CALLBACK with result.
+Return a deferred object for chaining further operations."
+  (cond
+   ((string-equal system-type "darwin")
+    (geolocation--osx-scan-wifi callback))
+   ((string-equal system-type "windows-nt")
+    (geolocation--windows-scan-wifi callback))
+   ((string-equal system-type "gnu/linux")
+    (geolocation--linux-scan-wifi callback))))
 
 ;;;###autoload
 (defun geolocation-get-position ()
