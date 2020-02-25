@@ -120,7 +120,9 @@
 
 The work will be done asynchronously.  The resulting value will
 be stored in `geolocation-location', and after updating your
-position `geolocation-update-hook' will be called.")
+position `geolocation-update-hook' will be called."
+  :type '(integer)
+  :group 'geolocation)
 
 (defcustom geolocation-update-hook nil
   "Hook functions to be run when the location is updated.
@@ -181,6 +183,10 @@ function is substituted instead."
       (lambda (x)
         (message "end: geolocation--shell-command-async")
         x))))
+
+(defun geolocation--timestamp (location)
+  "Append a timestamp to the alist stored in LOCATION."
+  (cons (cons 'timestamp (float-time)) location))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Macintosh
@@ -347,7 +353,7 @@ Return a deferred object for chaining further operations."
   :type '(string)
   :group 'geolocation-system-linux)
 
-(defun geolocation--linux-scan-wifi ()
+(defun geolocation--linux-scan-wifi (&optional _callback)
   "Wifi scanning on Linux not yet implemented."
   (error "Wifi scanning on Linux not yet implemented"))
 
@@ -402,19 +408,14 @@ those fields."
           wifi))
 
 (defun geolocation--google-xform-location (response)
-  "Transform the Google API response RESPONSE into the format needed.
-
-In particular the Google API responds with a json object
-\"location\" that contains inside the current \"lat\" and
-\"lon\", whereas this library expects those keys to be flattened
-at the same level as \"accuracy\"."
+  "Transform the Google API response RESPONSE into the format needed."
   (let* ((r (request-response-data response))
          (loc (alist-get 'location r))
          (lat (alist-get 'lat loc))
          (lng (alist-get 'lng loc))
          (acc (alist-get 'accuracy r)))
-    (list (cons 'lat lat)
-          (cons 'lon lng)
+    (list (cons 'latitude lat)
+          (cons 'longitude lng)
           (cons 'accuracy acc))))
 
 (defun geolocation--google-get-token ()
@@ -448,6 +449,9 @@ Return the deferred object containing the result of CALLBACK."
         (lambda (response)
           (when (= 200 (request-response-status-code response))
             (geolocation--google-xform-location response))))
+      (deferred:nextc it
+        (lambda (location)
+          (geolocation--timestamp location)))
       (deferred:nextc it
         (lambda (location)
           (funcall callback location))))))
@@ -500,18 +504,14 @@ In particular HERE wants the json payload to contain just the
           wifi))
 
 (defun geolocation--here-xform-location (response)
-  "Transform HERE's API response RESPONSE into the format needed.
-
-In particular the HERE Technologies API responds with a json
-object \"location\" that contains inside the current \"lat\",
-\"lon\" and \"accuracy\". We need to flatten that response."
+  "Transform HERE's API response RESPONSE into the format needed."
   (let* ((r (request-response-data response))
          (loc (alist-get 'location r))
          (lat (alist-get 'lat loc))
          (lng (alist-get 'lng loc))
          (acc (alist-get 'accuracy loc)))
-    (list (cons 'lat lat)
-          (cons 'lon lng)
+    (list (cons 'latitude lat)
+          (cons 'longitude lng)
           (cons 'accuracy acc))))
 
 (defun geolocation--here-get-token ()
@@ -546,6 +546,9 @@ Return the deferred object containing the result of CALLBACK."
         (lambda (response)
           (when (= 200 (request-response-status-code response))
             (geolocation--here-xform-location response))))
+      (deferred:nextc it
+        (lambda (location)
+          (geolocation--timestamp location)))
       (deferred:nextc it
         (lambda (location)
           (funcall callback location))))))
@@ -595,6 +598,16 @@ the library to retrieve your token via `auth-source' instead."
   :type '(string)
   :group 'geolocation-api-unwiredlabs)
 
+(defun geolocation--unwiredlabs-xform-location (response)
+  "Transform Unwired Labs's API response RESPONSE into the format needed."
+  (let* ((r (request-response-data response))
+         (lat (alist-get 'lat r))
+         (lng (alist-get 'lon r))
+         (acc (alist-get 'accuracy r)))
+    (list (cons 'latitude lat)
+          (cons 'longitude lng)
+          (cons 'accuracy acc))))
+
 (defun geolocation--unwiredlabs-get-token ()
   "Resolve the Unwired Labs API token.
 
@@ -624,7 +637,10 @@ Return the deferred onject containing the result of CALLBACK."
     (deferred:nextc it
       (lambda (response)
         (when (= 200 (request-response-status-code response))
-          (request-response-data response))))
+          (geolocation--unwiredlabs-xform-location response))))
+    (deferred:nextc it
+      (lambda (location)
+        (geolocation--timestamp location)))
     (deferred:nextc it
       (lambda (location)
         (funcall callback location)))))
