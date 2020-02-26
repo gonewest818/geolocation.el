@@ -30,23 +30,38 @@
 ;; use the known locations of the wifi access points and the relative
 ;; strength of each signal to triangulate your latitude and longitude.
 
-;; The main entry points are:
+;; The main entry point is:
 
-;; - `geolocation-get-position' which returns your estimated position as
-;;   an alist with the following keys:
-;;   - `lat' - latitude of the current position
-;;   - `lon' - longitude of the current position
-;;   - `accuracy' - an error radius, in meters
+;; - `geolocation-watch-position' which calls `geolocation-get-position'
+;;   on a regular interval, and sets `geolocation-location' with the
+;;   result.  The `geolocation-update-hook' functions are called after
+;;   each update.  Customize the hook functions if you want to
+;;   invoke functions based on your position, and customize the
+;;   `geolocation-update-interval' with the time granularity you need,
+;;   keeping in mind the underlying positioning APIs may have rate
+;;   limits and/or costs associated with high frequency querying.
 
-;; - `geolocation-scan-wifi' which scans for nearby wifi access points
-;;   using available system utilites, and produces a complete list of
-;;   everything in range sorted by signal strength.
-;;   Returns a list of alists containing:
+;; Other potentially useful functions include:
+
+;; - `geolocation-get-position' which retrieves your estimated position
+;;   once and invokes a callback with the position data.  The callback
+;;   receives an alist with the same format as `geolocation-location.'
+
+;; - `geolocation-scan-wifi' which scans asynchronously for nearby wifi
+;;   access points using available system utilites, and invokes a callback
+;;   with the wifi data.  The callback receives a list of alists containing:
 ;;   - `bssid' - mac address that uniquely identifies the AP
 ;;   - `signal' - relative signal strength, or RSSI
 ;;   - `channel' - transmission channel
+
 ;;   At present, wifi scanning is supported on Mac OSX and Windows.
 ;;   Linux support is planned but not yet implemented.
+
+;;   The variable `geolocation-location' will contain nil or an alist:
+;;   - `latitude' - latitude of the current position
+;;   - `longitude' - longitude of the current position
+;;   - `accuracy' - an error radius, in meters
+;;   - `timestamp' - timestamp via `float-time'
 
 ;; You have a choice of third party services to use for the positioning:
 
@@ -115,12 +130,10 @@
                 (const :tag "Unwired Labs Location API" :unwiredlabs))
   :group 'geolocation)
 
-(defcustom geolocation-update-frequency 300
-  "Frequency in seconds how often location is calculated.
-
-The work will be done asynchronously.  The resulting value will
-be stored in `geolocation-location', and after updating your
-position `geolocation-update-hook' will be called."
+(defcustom geolocation-update-interval 300
+  "Interval in seconds how often location is calculated.
+This setting has effect only when `geolocation-watch-position'
+has been called.  Set this to 0 to stop watching."
   :type '(integer)
   :group 'geolocation)
 
@@ -664,12 +677,10 @@ Return a deferred object for chaining further operations."
 (defun geolocation-get-position (&optional callback)
   "Obtain your estimated position in terms of latitude and longitude.
 The result is sent to CALLBACK as an alist with the following keys:
-  `lat'      : latitude of the current position
-  `lon'      : longitude of the current position
-  `accuracy' : accuracy of the estimate in meters
-
-Other keys may be included in the result, but are not guaranteed
-to be supported going forward."
+  `latitude'  : latitude of the current position
+  `longitude' : longitude of the current position
+  `accuracy'  : accuracy of the estimate in meters
+  `timestamp' : timestamp when this position was found"
 
   ;; TODO: learn how to dynamically chain deferreds and then
   ;; we don't have to nest callbacks in this way.
@@ -686,6 +697,24 @@ to be supported going forward."
            ((eq :unwiredlabs geolocation-api-vendor)
             (geolocation--call-unwiredlabs-api wifi callback))))))
 
+(defun geolocation--update-position (p)
+  "Update `geolocation-location' to position P."
+  (setq geolocation-location p))
+
+;;;###autoload
+(defun geolocation-watch-position ()
+  "Call `geolocation-get-position' on regular intervals.
+Update `geolocation-location' with the discovered position,
+and call the `geolocation-update-hook' functions after updating.
+The interval is controlled by `geolocation-update-interval',
+and if the interval is zero then stop watching."
+  (geolocation-get-position #'geolocation--update-position)
+  (dolist (hook geolocation-update-hook)
+    (funcall hook))
+  (when (> geolocation-update-interval 0)
+    (run-at-time geolocation-update-interval
+                 nil
+                 #'geolocation-watch-position)))
 
 (provide 'geolocation)
 ;;; geolocation.el ends here
