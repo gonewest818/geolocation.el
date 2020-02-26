@@ -698,23 +698,26 @@ The result is sent to CALLBACK as an alist with the following keys:
             (geolocation--call-unwiredlabs-api wifi callback))))))
 
 (defun geolocation--update-position (p)
-  "Update `geolocation-location' to position P."
-  (setq geolocation-location p))
-
-;;;###autoload
-(defun geolocation-watch-position ()
-  "Call `geolocation-get-position' on regular intervals.
-Update `geolocation-location' with the discovered position,
-and call the `geolocation-update-hook' functions after updating.
-The interval is controlled by `geolocation-update-interval',
-and if the interval is zero then stop watching."
-  (geolocation-get-position #'geolocation--update-position)
+  "Update `geolocation-location' to position P.
+Then call hooks and queue the next position check."
+  (setq geolocation-location p)
   (dolist (hook geolocation-update-hook)
     (funcall hook))
   (when (> geolocation-update-interval 0)
     (run-at-time geolocation-update-interval
                  nil
                  #'geolocation-watch-position)))
+
+;;;###autoload
+(defun geolocation-watch-position ()
+  "Call `geolocation-get-position' on regular intervals.
+
+This call updates `geolocation-location' with the discovered
+position, and then runs the `geolocation-update-hook' functions
+after updating.  The watch interval is controlled by
+`geolocation-update-interval'.  If interval is zero then stop."
+  ;; TODO: this implementation is too brittle.
+  (geolocation-get-position #'geolocation--update-position))
 
 (provide 'geolocation)
 ;;; geolocation.el ends here
