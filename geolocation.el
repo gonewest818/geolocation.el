@@ -165,7 +165,8 @@ an alist with the following keys:
 (defun geolocation--shell-command-async (command parser &optional callback)
   "Invoke COMMAND in a shell, run PARSER, and optionally pass to CALLBACK.
 The command and parser will run in a deferred chain that does not
-block the calling thread.  This function returns a deferred object.
+block the calling thread.  This function returns a deferred
+object suitable for further chaining.
 
 Within the deferred chain the PARSER will be invoked with a
 single argument which is the buffer containing the output of
@@ -443,22 +444,35 @@ hostname `geolocation-api-google-auth-source-host' and username
        :host geolocation-api-google-auth-source-host
        :user geolocation-api-google-auth-source-user)))
 
-(defun geolocation--call-google-api (wifi callback)
-  "Make asynch Google API request with WIFI data and send to CALLBACK.
-The CALLBACK is expected to store the resulting location data.
-Return the deferred object containing the result of CALLBACK."
+(defun geolocation--call-google-api (wd callback)
+  "Make asynch Google API request with wifi data and send to CALLBACK.
+The wifi data will be supplied in a deferred object WD.  The CALLBACK
+is expected to store the resulting location data.  Return the
+deferred object containing the result of CALLBACK.
+
+The implementation is a chain of deferreds with the following
+steps executing on a separate thread:
+  - transform wifi into the format Google wants
+  - call the Google API with that wifi data
+  - transform the Google response into the alist object we need
+  - attach a timestamp to the alist
+  - invoke the callback with the alist"
   (message "calling google api")
-  (let ((token (geolocation--google-get-token))
-        (wifi-g (geolocation--google-xform-wifi wifi)))
+  (let ((token (geolocation--google-get-token)))
     (deferred:$
-      (request-deferred
-       geolocation-api-google-url
-       :type "POST"
-       :params (list (cons "key" token))
-       :data (json-encode (list (cons "wifiAccessPoints" wifi-g)))
-       :parser #'json-read
-       :timeout 15)
+      (deferred:nextc wd                ; chaining steps onto "wd"
+        (lambda (wifi)
+          (geolocation--google-xform-wifi wifi)))
       (deferred:nextc it
+        (lambda (wifi)
+          (request-deferred
+           geolocation-api-google-url
+           :type "POST"
+           :params (list (cons "key" token))
+           :data (json-encode (list (cons "wifiAccessPoints" wifi)))
+           :parser #'json-read
+           :timeout 15)))
+      (deferred:nextc it                ; TODO: error handling
         (lambda (response)
           (when (= 200 (request-response-status-code response))
             (geolocation--google-xform-location response))))
@@ -539,23 +553,36 @@ hostname `geolocation-api-here-auth-source-host' and username
        :host geolocation-api-here-auth-source-host
        :user geolocation-api-here-auth-source-user)))
 
-(defun geolocation--call-here-api (wifi callback)
-  "Make asynch HERE API request with WIFI data and send to CALLBACK.
-The CALLBACK is expected to store the resulting location data.
-Return the deferred object containing the result of CALLBACK."
+(defun geolocation--call-here-api (wd callback)
+  "Make asynch HERE API request with wifi data and send to CALLBACK.
+The wifi data will be supplied in a deferred object WD.  The
+CALLBACK is expected to store the resulting location data.
+Return the deferred object containing the result of CALLBACK.
+
+The implementation is a chain of deferreds with the following
+steps executing on a separate thread:
+  - transform wifi into the format HERE wants
+  - call the HERE API with that wifi data
+  - transform the HERE response into the alist object we need
+  - attach a timestamp to the alist
+  - invoke the callback with the alist"
   (message "calling here api")
-  (let ((token (geolocation--here-get-token))
-        (wifi-g (geolocation--here-xform-wifi wifi)))
+  (let ((token (geolocation--here-get-token)))
     (deferred:$
-      (request-deferred
-       geolocation-api-here-url
-       :type "POST"
-       :params (list (cons "apiKey" token))
-       :headers '(("Content-Type" . "application/json"))
-       :data (json-encode (list (cons "wlan" wifi-g)))
-       :parser #'json-read
-       :timeout 15)
+      (deferred:nextc wd                ; chaining steps onto "wd"
+        (lambda (wifi)
+          (geolocation--here-xform-wifi wifi)))
       (deferred:nextc it
+        (lambda (wifi)
+          (request-deferred
+           geolocation-api-here-url
+           :type "POST"
+           :params (list (cons "apiKey" token))
+           :headers '(("Content-Type" . "application/json"))
+           :data (json-encode (list (cons "wlan" wifi)))
+           :parser #'json-read
+           :timeout 15)))
+      (deferred:nextc it                ; TODO: error handling
         (lambda (response)
           (when (= 200 (request-response-status-code response))
             (geolocation--here-xform-location response))))
@@ -633,30 +660,42 @@ hostname `geolocation--unwiredlabs-auth-source-host' and username
        :host geolocation-api-unwiredlabs-auth-source-host
        :user geolocation-api-unwiredlabs-auth-source-user)))
 
-(defun geolocation--call-unwiredlabs-api (wifi callback)
-  "Make asych Unwiredlabs API request with WIFI data and send to CALLBACK.
-The CALLBACK is expected to store the resulting locatoin data.
-Return the deferred onject containing the result of CALLBACK."
+(defun geolocation--call-unwiredlabs-api (wd callback)
+  "Make asych Unwiredlabs API request with wifi data and send to CALLBACK.
+The wifi data will be supplied in a deferred object WD.  The
+CALLBACK is expected to store the resulting location data.
+Return the deferred onject containing the result of CALLBACK.
+
+The implementation is a chain of deferreds with the following steps
+executing on a separate thread:
+  - (unlike other APIs, no need to transform the wifi data)
+  - call the Unwired API with the supplied wifi data
+  - transform the Unwired response into the alist object we need
+  - attach a timestamp to the alist
+  - invoke the callback with the alist"
   (message "calling unwiredlabs api")
-  (deferred:$
-    (request-deferred
-     geolocation-api-unwiredlabs-url
-     :type "POST"
-     :data (json-encode
-            `(("token" . ,(geolocation--unwiredlabs-get-token))
-              ("wifi" . ,wifi)))
-     :parser #'json-read
-     :timeout 15)
-    (deferred:nextc it
-      (lambda (response)
-        (when (= 200 (request-response-status-code response))
-          (geolocation--unwiredlabs-xform-location response))))
-    (deferred:nextc it
-      (lambda (location)
-        (geolocation--timestamp location)))
-    (deferred:nextc it
-      (lambda (location)
-        (funcall callback location)))))
+  (let ((token (geolocation--unwiredlabs-get-token)))
+    (deferred:$
+      (deferred:nextc wd                ; chaining steps onto "wd"
+        (lambda (wifi)
+          (request-deferred
+           geolocation-api-unwiredlabs-url
+           :type "POST"
+           :data (json-encode
+                  `(("token" . ,token)
+                    ("wifi" . ,wifi)))
+           :parser #'json-read
+           :timeout 15)))
+      (deferred:nextc it                ; TODO: error handling
+        (lambda (response)
+          (when (= 200 (request-response-status-code response))
+            (geolocation--unwiredlabs-xform-location response))))
+      (deferred:nextc it
+        (lambda (location)
+          (geolocation--timestamp location)))
+      (deferred:nextc it
+        (lambda (location)
+          (funcall callback location))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public API
@@ -681,21 +720,13 @@ The result is sent to CALLBACK as an alist with the following keys:
   `longitude' : longitude of the current position
   `accuracy'  : accuracy of the estimate in meters
   `timestamp' : timestamp when this position was found"
-
-  ;; TODO: learn how to dynamically chain deferreds and then
-  ;; we don't have to nest callbacks in this way.
-
-  (geolocation-scan-wifi
-   (lambda (wifi)
-     ;; This lambda is the callback for `-scan-wifi'.
-     ;; it receives the wifi list and forwards it to the
-     ;; selected api vendor.
-     (cond ((eq :google geolocation-api-vendor)
-            (geolocation--call-google-api wifi callback))
-           ((eq :here geolocation-api-vendor)
-            (geolocation--call-here-api wifi callback))
-           ((eq :unwiredlabs geolocation-api-vendor)
-            (geolocation--call-unwiredlabs-api wifi callback))))))
+  (let ((wd (geolocation-scan-wifi)))
+    (cond ((eq :google geolocation-api-vendor)
+           (geolocation--call-google-api wd callback))
+          ((eq :here geolocation-api-vendor)
+           (geolocation--call-here-api wd callback))
+          ((eq :unwiredlabs geolocation-api-vendor)
+           (geolocation--call-unwiredlabs-api wd callback)))))
 
 (defun geolocation--update-position (p)
   "Update `geolocation-location' to position P.
