@@ -17,7 +17,7 @@ strength of each signal to triangulate your latitude and longitude.
 
 ### Entry points
 
-- `geolocation-watch-position` which calls `geolocation-get-position`
+- `geolocation-update-position` which calls `geolocation-get-position`
   on a regular interval, and sets `geolocation-location` with the
   result.  Calls the `geolocation-update-hook` functions after each
   update.  Customize the hook if you want to invoke functions based on

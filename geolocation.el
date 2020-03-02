@@ -32,7 +32,7 @@
 
 ;; The main entry point is:
 
-;; - `geolocation-watch-position' which calls `geolocation-get-position'
+;; - `geolocation-update-position' which calls `geolocation-get-position'
 ;;   on a regular interval, and sets `geolocation-location' with the
 ;;   result.  The `geolocation-update-hook' functions are called after
 ;;   each update.  Customize the hook functions if you want to
@@ -131,21 +131,21 @@
   :group 'geolocation)
 
 (defcustom geolocation-update-interval 300
-  "Interval in seconds how often location is calculated.
-This setting has effect only when `geolocation-watch-position'
-has been called.  Set this to 0 to stop watching."
+  "Set the interval (in seconds) how often location is updated.
+This setting has effect only when `geolocation-update-position'
+has been called."
   :type '(integer)
   :group 'geolocation)
 
 (defcustom geolocation-update-hook nil
-  "Hook functions to be run when the location is updated.
+  "Hook functions to run when the location is updated.
 
-These hooks should be functions with no arguments.  When the hook
-is called, the value in `geolocation-location' will have been
-updated recently.  If the hook function is interested in knowing
-when the location has physically changed, then the hook will need
-to have saved a previous set of coordinates to compute the
-distance between the previous and new coordinates."
+Each hook is a function taking no arguments.  When the hook is
+called, the value in `geolocation-location' will have been
+updated recently.  Note, we make no attempt to track movement or
+distance from the last position.  To get movement, the hook
+itself will need to have saved the previous coordinates and
+compute the distance between the previous and new."
   :type '(repeat symbol)
   :group 'geolocation)
 
@@ -186,8 +186,7 @@ when done.
 If a CALLBACK is provided, it will be invoked with the output of
 the PARSER.  It is the responsibility of the CALLBACK to return
 the value it was passed, so that further callbacks can be added
-to the chain.  If no CALLBACK is provided then an \"identity\"
-function is substituted instead."
+to the chain."
   (deferred:$
     (deferred:next
       (lambda ()
@@ -233,9 +232,8 @@ function is substituted instead."
   "Path to the Apple 'airport' binary on Mac OSX.
 
 We need to specify this because the utility is not in a standard
-location.  It's unlikely users need to change this.  However
-we're exposing the setting as a customization in case Apple
-changes the location."
+location.  It's unlikely users need to customize this, unless
+Apple changes the location of the utility."
   :type '(string)
   :group 'geolocation-system-osx)
 
@@ -710,7 +708,7 @@ executing on a separate thread:
 
 ;;;###autoload
 (defun geolocation-scan-wifi (&optional callback)
-  "Scan wifi asynchronously, and optionally call CALLBACK with result.
+  "Scan wifi asynchronously and call (optional) CALLBACK with result.
 Return a deferred object for chaining further operations."
   (cond
    ((string-equal system-type "darwin")
@@ -722,9 +720,10 @@ Return a deferred object for chaining further operations."
 
 ;;;###autoload
 (defun geolocation-get-position (&optional callback)
-  "Obtain your estimated position in terms of latitude and longitude.
+  "Get a position in terms of latitude and longitude.
 Return a deferred object for chaining further operations.  The
-result is sent to CALLBACK as an alist with the following keys:
+position is sent to CALLBACK as an alist with a structure
+identical to `geolocation-location':
   `latitude'  : latitude of the current position
   `longitude' : longitude of the current position
   `accuracy'  : accuracy of the estimate in meters
@@ -745,12 +744,12 @@ Then call the `geolocation-update-hook' functions."
   (dolist (hook geolocation-update-hook)
     (funcall hook)))
 
-(defvar geolocation--watch-active nil
-  "Control the `geolocation--watch-position-loop' iteration.
-Value of t to continue and nil to stop.  This var is managed by
-`geolocation-watch-position' and need not be set directly.")
+(defvar geolocation--update-active nil
+  "Controls the `geolocation--update-position-loop' iteration.
+This var is managed by `geolocation-update-position' and need not
+be set directly.")
 
-(defun geolocation--watch-position-loop ()
+(defun geolocation--update-position-loop ()
   "Call `geolocation-get-position' in a loop.
 After each update store the result in `geolocation-location' and
 run the `geolocation-update-hook' functions.  The loop interval
@@ -763,18 +762,20 @@ updated on the fly without stopping and restarting this loop."
     (deferred:wait (* geolocation-update-interval 1000))
     (deferred:nextc it
       (lambda ()
-        (when geolocation--watch-active
-          (geolocation--watch-position-loop))))))
+        (when geolocation--update-active
+          (geolocation--update-position-loop))))))
 
 ;;;###autoload
-(defun geolocation-watch-position (start)
-  "When START is true, start the `geolocation--watch-position-loop'.
-When START is nil, stop the watch loop."
-  (cond ((and start geolocation--watch-active) t)  ; already running
-        (start (setq geolocation--watch-active t)  ; start loop
-               (geolocation--watch-position-loop)
-               t)
-        (t (setq geolocation--watch-active nil)))) ; else, stop loop
+(defun geolocation-update-position (&optional arg)
+  "Start polling and updating the current position.
+With a prefix argument ARG, stop after the next update."
+  (interactive "P")
+  (let ((start (not arg)))
+    (cond ((and start geolocation--update-active) t) ; already running
+          (start (setq geolocation--update-active t) ; start loop
+                 (geolocation--update-position-loop)
+                 t)
+          (t (setq geolocation--update-active nil))))) ; else, stop loop
 
 (provide 'geolocation)
 ;;; geolocation.el ends here
