@@ -41,6 +41,12 @@
 ;;   keeping in mind the underlying positioning APIs may have rate
 ;;   limits and/or costs associated with high frequency querying.
 
+;;   The variable `geolocation-location' will contain nil or an alist:
+;;   - `latitude' - latitude of the current position
+;;   - `longitude' - longitude of the current position
+;;   - `accuracy' - an error radius, in meters
+;;   - `timestamp' - timestamp via `float-time'
+
 ;; Other potentially useful functions include:
 
 ;; - `geolocation-get-position' which retrieves your estimated position
@@ -56,12 +62,6 @@
 
 ;;   At present, wifi scanning is supported on Mac OSX and Windows.
 ;;   Linux support is planned but not yet implemented.
-
-;;   The variable `geolocation-location' will contain nil or an alist:
-;;   - `latitude' - latitude of the current position
-;;   - `longitude' - longitude of the current position
-;;   - `accuracy' - an error radius, in meters
-;;   - `timestamp' - timestamp via `float-time'
 
 ;; You have a choice of third party services to use for the positioning:
 
@@ -715,7 +715,8 @@ Return a deferred object for chaining further operations."
 ;;;###autoload
 (defun geolocation-get-position (&optional callback)
   "Obtain your estimated position in terms of latitude and longitude.
-The result is sent to CALLBACK as an alist with the following keys:
+Return a deferred object for chaining further operations.  The
+result is sent to CALLBACK as an alist with the following keys:
   `latitude'  : latitude of the current position
   `longitude' : longitude of the current position
   `accuracy'  : accuracy of the estimate in meters
@@ -728,27 +729,40 @@ The result is sent to CALLBACK as an alist with the following keys:
           ((eq :unwiredlabs geolocation-api-vendor)
            (geolocation--call-unwiredlabs-api wd callback)))))
 
-(defun geolocation--update-position (p)
+(defvar geolocation--watch-active nil)
+
+(defun geolocation--update-position-callback (p)
   "Update `geolocation-location' to position P.
-Then call hooks and queue the next position check."
+Then call the `geolocation-update-hook' functions."
   (setq geolocation-location p)
   (dolist (hook geolocation-update-hook)
-    (funcall hook))
-  (when (> geolocation-update-interval 0)
-    (run-at-time geolocation-update-interval
-                 nil
-                 #'geolocation-watch-position)))
+    (funcall hook)))
+
+(defun geolocation--watch-position-loop ()
+  "Call `geolocation-get-position' in a loop.
+After each update store the result in `geolocation-location' and
+run the `geolocation-update-hook' functions.  The loop interval
+is controlled by `geolocation-update-interval', which can be
+updated on the fly without stopping and restarting this loop."
+  (deferred:$
+    (deferred:call
+      #'geolocation-get-position
+      #'geolocation--update-position-callback)
+    (deferred:wait (* geolocation-update-interval 1000))
+    (deferred:nextc it
+      (lambda ()
+        (when geolocation--watch-active
+          (geolocation--watch-position-loop))))))
 
 ;;;###autoload
-(defun geolocation-watch-position ()
-  "Call `geolocation-get-position' on regular intervals.
-
-This call updates `geolocation-location' with the discovered
-position, and then runs the `geolocation-update-hook' functions
-after updating.  The watch interval is controlled by
-`geolocation-update-interval'.  If interval is zero then stop."
-  ;; TODO: this implementation is too brittle.
-  (geolocation-get-position #'geolocation--update-position))
+(defun geolocation-watch-position (start)
+  "When START is true, start the `geolocation--watch-position-loop'.
+When START is nil, stop the watch loop."
+  (cond ((and start geolocation--watch-active) t)  ; already running
+        (start (setq geolocation--watch-active t)  ; start loop
+               (geolocation--watch-position-loop)
+               t)
+        (t (setq geolocation--watch-active nil)))) ; else, stop loop
 
 (provide 'geolocation)
 ;;; geolocation.el ends here
