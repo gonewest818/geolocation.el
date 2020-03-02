@@ -190,7 +190,7 @@ to the chain."
   (deferred:$
     (deferred:next
       (lambda ()
-        (geolocation--dbg 1 "start: geolocation--shell-command-async")))
+        (geolocation--dbg 1 "geolocation--shell-command-async:start")))
     (deferred:process-shell-buffer command)
     (deferred:nextc it parser)
     (deferred:nextc it
@@ -198,14 +198,18 @@ to the chain."
         (sort x (lambda (i j)
                   (> (alist-get 'signal i)
                      (alist-get 'signal j))))))
+    (deferred:error it                  ; catch error and return nil
+      (lambda (err)
+        (geolocation--dbg 0 "geolocation--shell-command-async:error: %s" err)
+        nil))
     (deferred:nextc it
       (lambda (x)
-        (if callback                    ; e.g. to save wifi data
+        (if (and x callback)            ; e.g. to save wifi data
             (funcall callback x)
           x)))
     (deferred:nextc it
       (lambda (x)
-        (geolocation--dbg 1 "end: geolocation--shell-command-async")
+        (geolocation--dbg 1 "geolocation--shell-command-async:end")
         x))))
 
 (defun geolocation--timestamp (location)
@@ -472,7 +476,7 @@ steps executing on a separate thread:
           (geolocation--google-xform-wifi wifi)))
       (deferred:nextc it
         (lambda (wifi)
-          (geolocation--dbg 1 "calling google api")
+          (geolocation--dbg 1 "geolocation--call-google-api:request")
           (request-deferred
            geolocation-api-google-url
            :type "POST"
@@ -480,16 +484,21 @@ steps executing on a separate thread:
            :data (json-encode (list (cons "wifiAccessPoints" wifi)))
            :parser #'json-read
            :timeout 15)))
-      (deferred:nextc it                ; TODO: error handling
+      (deferred:nextc it
         (lambda (response)
-          (when (= 200 (request-response-status-code response))
-            (geolocation--google-xform-location response))))
+          (if (= 200 (request-response-status-code response))
+              (geolocation--google-xform-location response)
+            (geolocation--dbg 0 "geolocation--call-google-api:error-thrown: %s"
+                              (request-response-error-thrown response))
+            (geolocation--dbg 0 "geolocation--call-google-api:status-code: %s"
+                              (request-response-status-code response))
+            nil)))
       (deferred:nextc it
         (lambda (location)
-          (geolocation--timestamp location)))
+          (and location (geolocation--timestamp location))))
       (deferred:nextc it
         (lambda (location)
-          (funcall callback location))))))
+          (and location (funcall callback location)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; HERE Technologoies positioning api
@@ -580,7 +589,7 @@ steps executing on a separate thread:
           (geolocation--here-xform-wifi wifi)))
       (deferred:nextc it
         (lambda (wifi)
-          (geolocation--dbg 1 "calling here api")
+          (geolocation--dbg 1 "geolocation--call-here-api:request")
           (request-deferred
            geolocation-api-here-url
            :type "POST"
@@ -589,16 +598,21 @@ steps executing on a separate thread:
            :data (json-encode (list (cons "wlan" wifi)))
            :parser #'json-read
            :timeout 15)))
-      (deferred:nextc it                ; TODO: error handling
+      (deferred:nextc it
         (lambda (response)
-          (when (= 200 (request-response-status-code response))
-            (geolocation--here-xform-location response))))
+          (if (= 200 (request-response-status-code response))
+              (geolocation--here-xform-location response)
+            (geolocation--dbg 0 "geolocation--call-here-api:error-thrown: %s"
+                              (request-response-error-thrown response))
+            (geolocation--dbg 0 "geolocation--call-here-api:status-code: %s"
+                              (request-response-status-code response))
+            nil)))
       (deferred:nextc it
         (lambda (location)
-          (geolocation--timestamp location)))
+          (and location (geolocation--timestamp location))))
       (deferred:nextc it
         (lambda (location)
-          (funcall callback location))))))
+          (and location (funcall callback location)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unwired Labs geolocation api
@@ -683,7 +697,7 @@ executing on a separate thread:
     (deferred:$
       (deferred:nextc wd                ; chaining steps onto "wd"
         (lambda (wifi)
-          (geolocation--dbg 1 "calling unwiredlabs api")
+          (geolocation--dbg 1 "geolocation--call-unwiredlabs-api:request")
           (request-deferred
            geolocation-api-unwiredlabs-url
            :type "POST"
@@ -692,16 +706,21 @@ executing on a separate thread:
                     ("wifi" . ,wifi)))
            :parser #'json-read
            :timeout 15)))
-      (deferred:nextc it                ; TODO: error handling
+      (deferred:nextc it
         (lambda (response)
-          (when (= 200 (request-response-status-code response))
-            (geolocation--unwiredlabs-xform-location response))))
+          (if (= 200 (request-response-status-code response))
+              (geolocation--unwiredlabs-xform-location response)
+            (geolocation--dbg 0 "geolocation--call-unwiredlabs-api:error-thrown: %s"
+                              (request-response-error-thrown response))
+            (geolocation--dbg 0 "geolocation--call-unwiredlabs-api:status-code: %s"
+                              (request-response-status-code response))
+            nil)))
       (deferred:nextc it
         (lambda (location)
-          (geolocation--timestamp location)))
+          (and location (geolocation--timestamp location))))
       (deferred:nextc it
         (lambda (location)
-          (funcall callback location))))))
+          (and location (funcall callback location)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public API
