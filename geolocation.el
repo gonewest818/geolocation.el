@@ -162,6 +162,16 @@ an alist with the following keys:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utilities
 
+(defvar geolocation-debug-messages 0
+  "Control debug output to *Messages* buffer.
+Set 0 to disable all output, 1 for basic output, or a larger
+integer for more verbosity.")
+
+(defun geolocation--dbg (v fmt &rest args)
+  "Print debug message at verbosity V, filling format string FMT with ARGS."
+  (when (>= geolocation-debug-messages v)
+    (apply #'message fmt args)))
+
 (defun geolocation--shell-command-async (command parser &optional callback)
   "Invoke COMMAND in a shell, run PARSER, and optionally pass to CALLBACK.
 The command and parser will run in a deferred chain that does not
@@ -179,8 +189,9 @@ the value it was passed, so that further callbacks can be added
 to the chain.  If no CALLBACK is provided then an \"identity\"
 function is substituted instead."
   (deferred:$
-    (deferred:next                      ; TODO: silence this
-      (lambda () (message "start: geolocation--shell-command-async")))
+    (deferred:next
+      (lambda ()
+        (geolocation--dbg 1 "start: geolocation--shell-command-async")))
     (deferred:process-shell-buffer command)
     (deferred:nextc it parser)
     (deferred:nextc it
@@ -193,9 +204,9 @@ function is substituted instead."
         (if callback                    ; e.g. to save wifi data
             (funcall callback x)
           x)))
-    (deferred:nextc it                  ; TODO: silence this
+    (deferred:nextc it
       (lambda (x)
-        (message "end: geolocation--shell-command-async")
+        (geolocation--dbg 1 "end: geolocation--shell-command-async")
         x))))
 
 (defun geolocation--timestamp (location)
@@ -457,7 +468,6 @@ steps executing on a separate thread:
   - transform the Google response into the alist object we need
   - attach a timestamp to the alist
   - invoke the callback with the alist"
-  (message "calling google api")
   (let ((token (geolocation--google-get-token)))
     (deferred:$
       (deferred:nextc wd                ; chaining steps onto "wd"
@@ -465,6 +475,7 @@ steps executing on a separate thread:
           (geolocation--google-xform-wifi wifi)))
       (deferred:nextc it
         (lambda (wifi)
+          (geolocation--dbg 1 "calling google api")
           (request-deferred
            geolocation-api-google-url
            :type "POST"
@@ -566,7 +577,6 @@ steps executing on a separate thread:
   - transform the HERE response into the alist object we need
   - attach a timestamp to the alist
   - invoke the callback with the alist"
-  (message "calling here api")
   (let ((token (geolocation--here-get-token)))
     (deferred:$
       (deferred:nextc wd                ; chaining steps onto "wd"
@@ -574,6 +584,7 @@ steps executing on a separate thread:
           (geolocation--here-xform-wifi wifi)))
       (deferred:nextc it
         (lambda (wifi)
+          (geolocation--dbg 1 "calling here api")
           (request-deferred
            geolocation-api-here-url
            :type "POST"
@@ -673,11 +684,11 @@ executing on a separate thread:
   - transform the Unwired response into the alist object we need
   - attach a timestamp to the alist
   - invoke the callback with the alist"
-  (message "calling unwiredlabs api")
   (let ((token (geolocation--unwiredlabs-get-token)))
     (deferred:$
       (deferred:nextc wd                ; chaining steps onto "wd"
         (lambda (wifi)
+          (geolocation--dbg 1 "calling unwiredlabs api")
           (request-deferred
            geolocation-api-unwiredlabs-url
            :type "POST"
@@ -735,6 +746,7 @@ result is sent to CALLBACK as an alist with the following keys:
   "Update `geolocation-location' to position P.
 Then call the `geolocation-update-hook' functions."
   (setq geolocation-location p)
+  (message "geolocation-location: %s" geolocation-location)
   (dolist (hook geolocation-update-hook)
     (funcall hook)))
 
