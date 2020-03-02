@@ -17,16 +17,30 @@ strength of each signal to triangulate your latitude and longitude.
 
 ### Entry points
 
-- `geolocation-get-position` which returns your estimated position as
-  an alist with the following keys:
-  - `lat` - latitude of the current position
-  - `lon` - longitude of the current position
-  - `accuracy` - an error radius, in meters
+- `geolocation-watch-position` which calls `geolocation-get-position`
+  on a regular interval, and sets `geolocation-location` with the
+  result.  Calls the `geolocation-update-hook` functions after each
+  update.  Customize the hook if you want to invoke functions based on
+  your position, and customize the `geolocation-update-interval` with
+  the time granularity you need, keeping in mind the underlying
+  positioning APIs may have rate limits and/or costs associated with
+  high frequency querying.
 
-- `geolocation-scan-wifi` which scans for nearby wifi access points
-  using available system utilites, and produces a complete list of
-  everything in range sorted by signal strength.
-  Returns a list of alists containing:
+  The variable `geolocation-location` will contain nil or an alist:
+    - `latitude` - latitude of the current position
+    - `longitude` - longitude of the current position
+    - `accuracy` - an error radius, in meters
+    - `timestamp` - timestamp via `float-time`
+
+Other potentially useful functions include:
+
+- `geolocation-get-position` which retrieves your estimated position
+  once and invokes a callback with the position data.  The callback
+  receives an alist with the same format as `geolocation-location`.
+
+- `geolocation-scan-wifi` which scans asynchronously for nearby wifi
+  access points using available system utilites, and invokes a callback
+  with the wifi data.  The callback receives a list of alists containing:
   - `bssid` - mac address that uniquely identifies the AP
   - `signal` - relative signal strength, or RSSI
   - `channel` - transmission channel

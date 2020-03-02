@@ -456,10 +456,9 @@ hostname `geolocation-api-google-auth-source-host' and username
        :user geolocation-api-google-auth-source-user)))
 
 (defun geolocation--call-google-api (wd callback)
-  "Make asynch Google API request with wifi data and send to CALLBACK.
-The wifi data will be supplied in a deferred object WD.  The CALLBACK
-is expected to store the resulting location data.  Return the
-deferred object containing the result of CALLBACK.
+  "Request location from Google API using wifi data in the deferred WD.
+Send results to a CALLBACK which is expected to store the
+resulting location data.  Return a deferred object.
 
 The implementation is a chain of deferreds with the following
 steps executing on a separate thread:
@@ -565,10 +564,9 @@ hostname `geolocation-api-here-auth-source-host' and username
        :user geolocation-api-here-auth-source-user)))
 
 (defun geolocation--call-here-api (wd callback)
-  "Make asynch HERE API request with wifi data and send to CALLBACK.
-The wifi data will be supplied in a deferred object WD.  The
-CALLBACK is expected to store the resulting location data.
-Return the deferred object containing the result of CALLBACK.
+  "Request location from HERE API using wifi data in the deferred WD.
+Send results to a CALLBACK which is expected to store the
+resulting location data.  Return a deferred object.
 
 The implementation is a chain of deferreds with the following
 steps executing on a separate thread:
@@ -672,10 +670,9 @@ hostname `geolocation--unwiredlabs-auth-source-host' and username
        :user geolocation-api-unwiredlabs-auth-source-user)))
 
 (defun geolocation--call-unwiredlabs-api (wd callback)
-  "Make asych Unwiredlabs API request with wifi data and send to CALLBACK.
-The wifi data will be supplied in a deferred object WD.  The
-CALLBACK is expected to store the resulting location data.
-Return the deferred onject containing the result of CALLBACK.
+  "Request location from Unwired Labs API using wifi data in the deferred WD.
+Send results to a CALLBACK which is expected to store the
+resulting location data.  Return a deferred object.
 
 The implementation is a chain of deferreds with the following steps
 executing on a separate thread:
@@ -740,8 +737,6 @@ result is sent to CALLBACK as an alist with the following keys:
           ((eq :unwiredlabs geolocation-api-vendor)
            (geolocation--call-unwiredlabs-api wd callback)))))
 
-(defvar geolocation--watch-active nil)
-
 (defun geolocation--update-position-callback (p)
   "Update `geolocation-location' to position P.
 Then call the `geolocation-update-hook' functions."
@@ -749,6 +744,11 @@ Then call the `geolocation-update-hook' functions."
   (message "geolocation-location: %s" geolocation-location)
   (dolist (hook geolocation-update-hook)
     (funcall hook)))
+
+(defvar geolocation--watch-active nil
+  "Control the `geolocation--watch-position-loop' iteration.
+Value of t to continue and nil to stop.  This var is managed by
+`geolocation-watch-position' and need not be set directly.")
 
 (defun geolocation--watch-position-loop ()
   "Call `geolocation-get-position' in a loop.
