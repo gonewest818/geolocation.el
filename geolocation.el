@@ -60,6 +60,10 @@
 ;;   - `signal' - relative signal strength, or RSSI
 ;;   - `channel' - transmission channel
 
+;; - `geolocation-update-calendar' stores the latest position in
+;;   `calendar-latitude' and `calendar-longitude'.  This function works
+;;   as a `geolocation-update-hook'.
+
 ;;   At present, wifi scanning is supported on Mac OSX and Windows.
 ;;   Linux support is planned but not yet implemented.
 
@@ -754,6 +758,13 @@ identical to `geolocation-location':
            (geolocation--call-here-api wd callback))
           ((eq :unwiredlabs geolocation-api-vendor)
            (geolocation--call-unwiredlabs-api wd callback)))))
+
+(defun geolocation-update-calendar ()
+  "Update `calendar-latitiude' and `calendar-longitude'.
+This function is intended to be a `geolocation-update-hook'."
+  (with-no-warnings
+    (setq calendar-latitude (alist-get 'latitude geolocation-location))
+    (setq calendar-longitude (alist-get 'longitude geolocation-location))))
 
 (defun geolocation--update-position-callback (p)
   "Update `geolocation-location' to position P.

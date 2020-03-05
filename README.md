@@ -45,6 +45,10 @@ Other potentially useful functions include:
   - `signal` - relative signal strength, or RSSI
   - `channel` - transmission channel
 
+- `geolocation-update-calendar` stores the latest position in
+  `calendar-latitude` and `calendar-longitude`.  This function works
+  as a `geolocation-update-hook`.
+
 At present, wifi scanning is supported on Mac OSX and Windows.
 Linux support is planned but not yet implemented.
 
