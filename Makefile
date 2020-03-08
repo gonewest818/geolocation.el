@@ -1,7 +1,7 @@
 export EMACS ?= emacs
 export BATCH = --batch -q -l .emacs/init.el
 
-ELS = $(filter-out geolocation-autoloads.el,$(wildcard *.el))
+ELS = $(filter-out Elsafile.el geolocation-autoloads.el,$(wildcard *.el))
 TESTS = $(wildcard test/*.el)
 OBJECTS = $(ELS:.el=.elc)
 BACKUPS = $(ELS:.el=.el~) $(TESTS:.el=.el~)
@@ -31,6 +31,9 @@ lint: .elpa
 	                  --no-package-lint \
 	                  --no-checkdoc \
 	                  --no-check-declare $(TESTS)
+
+elsa: .elpa
+	$(EMACS) $(BATCH) -f elsa-run-files-and-exit $(ELS)
 
 test: .elpa
 	$(EMACS) $(BATCH) -f buttercup-run-discover

@@ -1,13 +1,20 @@
 ;;; dependencies.el - project specific package dependencies
 
-(use-package elisp-lint
-  :ensure t)
+;; testing
 
 (use-package buttercup
   :ensure t)
 
+(use-package elisp-lint
+  :ensure t)
+
+(use-package elsa
+  :ensure t)
+
 (use-package undercover
   :ensure t)
+
+;; package-requires
 
 (use-package deferred
   :ensure t)
