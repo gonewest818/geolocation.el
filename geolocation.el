@@ -54,7 +54,7 @@
 ;;   receives an alist with the same format as `geolocation-location.'
 
 ;; - `geolocation-scan-wifi' which scans asynchronously for nearby wifi
-;;   access points using available system utilites, and invokes a callback
+;;   access points using available system utilities, and invokes a callback
 ;;   with the wifi data.  The callback receives a list of alists containing:
 ;;   - `bssid' - mac address that uniquely identifies the AP
 ;;   - `signal' - relative signal strength, or RSSI
@@ -115,6 +115,7 @@
 
 ;;; Code:
 
+(require 'auth-source)
 (require 'json)
 (require 'deferred)
 (require 'request-deferred)
@@ -279,7 +280,7 @@ Return a deferred object for chaining further operations."
    #'geolocation--osx-parse-wifi
    callback))
 
-;; The OSX "airport" utilty also outputs a property list in XML format
+;; The OSX "airport" utility also outputs a property list in XML format
 ;; which in principle should be more reliable to parse, and contains
 ;; more interesting information than the human readable output.
 ;; However as of 2/1/2020 the "airport" utility truncates output when
@@ -505,7 +506,7 @@ steps executing on a separate thread:
           (and location (funcall callback location)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; HERE Technologoies positioning api
+;; HERE Technologies positioning api
 
 (defgroup geolocation-api-here nil
   "Configuration needed to call the HERE Technologies Positioning API"
@@ -760,7 +761,7 @@ identical to `geolocation-location':
            (geolocation--call-unwiredlabs-api wd callback)))))
 
 (defun geolocation-update-calendar ()
-  "Update `calendar-latitiude' and `calendar-longitude'.
+  "Update `calendar-latitude' and `calendar-longitude'.
 This function is intended to be a `geolocation-update-hook'."
   (with-no-warnings
     (setq calendar-latitude (alist-get 'latitude geolocation-location))
