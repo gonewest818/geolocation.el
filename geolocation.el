@@ -771,7 +771,7 @@ This function is intended to be a `geolocation-update-hook'."
   "Update `geolocation-location' to position P.
 Then call the `geolocation-update-hook' functions."
   (setq geolocation-location p)
-  (message "geolocation-location: %s" geolocation-location)
+  (geolocation--dbg 1 "geolocation-location: %s" geolocation-location)
   (dolist (hook geolocation-update-hook)
     (funcall hook)))
 
